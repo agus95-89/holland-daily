@@ -28,6 +28,14 @@
         margin: 0 auto;
         padding: 4rem 1.5rem;
       }
+      .presenter {
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.2em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin: 0 0 1.5rem;
+      }
       h1 {
         font-size: 4rem;
         font-weight: 200;
@@ -64,12 +72,34 @@
       @media (prefers-color-scheme: dark) {
         code { background: rgba(255,255,255,0.08); }
       }
+      footer {
+        margin-top: 4rem;
+        padding-top: 2rem;
+        border-top: 1px solid rgba(128,128,128,0.2);
+        text-align: center;
+        font-size: 0.9rem;
+      }
+      footer a {
+        color: var(--fg);
+        border-bottom-color: rgba(128,128,128,0.3);
+      }
+      footer .sep {
+        color: var(--muted);
+        margin: 0 0.75rem;
+      }
+      footer .credit {
+        margin-top: 0.9rem;
+        font-size: 0.7rem;
+        letter-spacing: 0.15em;
+        color: var(--muted);
+      }
     </style>
   </head>
   <body>
     <main>
+      <p class="presenter">Presented by HARRO</p>
       <h1>Holland Daily<span class="dot">.</span></h1>
-      <p class="tagline">オランダの朝ニュース、日本語で。</p>
+      <p class="tagline">オランダのニュースを、日本語で。</p>
 
       <section>
         <h2>Podcast</h2>
@@ -86,6 +116,13 @@
           政治・経済・社会・テックなどカテゴリ別に、10分から15分のポッドキャストで。
         </p>
       </section>
+
+      <footer>
+        <a href="https://shop.harrojp.com/ja-nl">HARRO Online Shop</a>
+        <span class="sep">·</span>
+        <a href="https://www.instagram.com/harro_app/">Instagram</a>
+        <div class="credit">Presented by HARRO</div>
+      </footer>
     </main>
   </body>
 </html>

@@ -47,12 +47,17 @@ tts:
 
 podcast:
   show_name: Holland Daily
-  show_subtitle: オランダの朝ニュース、日本語で。
+  show_subtitle: オランダのニュースを、日本語で。
+  presented_by: HARRO
   author: Holland Daily
   email: hollandaily@example.com
   base_url: https://agus95-89.github.io/holland-daily
   itunes_category: News
   itunes_subcategory: Daily News
+
+links:
+  harro_shop: https://shop.harrojp.com/ja-nl
+  harro_instagram: https://www.instagram.com/harro_app/
 
 slack:
   username: Holland Daily

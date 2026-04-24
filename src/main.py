@@ -156,6 +156,9 @@ def main() -> int:
                 today=today,
                 show_name=cfg["podcast"]["show_name"],
                 subtitle=cfg["podcast"]["show_subtitle"],
+                presented_by=cfg["podcast"].get("presented_by", "HARRO"),
+                shop_url=cfg.get("links", {}).get("harro_shop", ""),
+                instagram_url=cfg.get("links", {}).get("harro_instagram", ""),
             )
             notified = True
         except Exception as e:
