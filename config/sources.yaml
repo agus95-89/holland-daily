@@ -1,0 +1,59 @@
+sources:
+  - name: NOS Algemeen
+    url: https://feeds.nos.nl/nosnieuwsalgemeen
+    enabled: true
+  - name: NOS Politiek
+    url: https://feeds.nos.nl/nosnieuwspolitiek
+    enabled: true
+  - name: NOS Economie
+    url: https://feeds.nos.nl/nosnieuwseconomie
+    enabled: true
+  - name: NU.nl
+    url: https://www.nu.nl/rss/Algemeen
+    enabled: true
+  - name: NL Times
+    url: https://nltimes.nl/rss.xml
+    enabled: true
+  - name: DutchNews
+    url: https://www.dutchnews.nl/feed/
+    enabled: true
+  - name: Rijksoverheid
+    url: https://www.rijksoverheid.nl/documenten.rss
+    enabled: true
+
+categories:
+  - 政治・政策
+  - 経済・ビジネス
+  - 社会・事件
+  - EU・国際関係
+  - テック・スタートアップ
+  - 生活・文化
+
+schedule:
+  target_hour_nl: 9
+  timezone: Europe/Amsterdam
+  max_articles: 10
+  candidate_pool_cap: 25
+  window_hours: 26
+
+claude:
+  model: claude-sonnet-4-6
+  max_body_chars: 8000
+
+tts:
+  intro_voice: ja-JP-Neural2-B
+  body_voice: ja-JP-Neural2-C
+  speaking_rate: 1.05
+
+podcast:
+  show_name: Holland Daily
+  show_subtitle: オランダの朝ニュース、日本語で。
+  author: Holland Daily
+  email: hollandaily@example.com
+  base_url: https://agus95-89.github.io/holland-daily
+  itunes_category: News
+  itunes_subcategory: Daily News
+
+slack:
+  username: Holland Daily
+  icon_emoji: ":sunrise:"

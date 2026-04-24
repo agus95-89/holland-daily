@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+.env
+.venv/
+venv/
+gcp-sa.json
+*.tmp
+.DS_Store
+.vscode/
+.idea/

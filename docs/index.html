@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="ja">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Holland Daily — オランダの朝ニュース</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #faf7f2;
+        --fg: #1a1a1a;
+        --accent: #ff6b35;
+        --muted: #6b6b6b;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        font-family: -apple-system, "Helvetica Neue", Arial, "Hiragino Sans", "Yu Gothic", sans-serif;
+        background: var(--bg);
+        color: var(--fg);
+        line-height: 1.7;
+      }
+      main {
+        max-width: 640px;
+        margin: 0 auto;
+        padding: 4rem 1.5rem;
+      }
+      h1 {
+        font-size: 4rem;
+        font-weight: 200;
+        letter-spacing: -0.04em;
+        margin: 0 0 0.5rem;
+      }
+      .tagline {
+        font-size: 1.1rem;
+        color: var(--muted);
+        margin: 0 0 3rem;
+      }
+      .dot { color: var(--accent); }
+      a {
+        color: var(--accent);
+        text-decoration: none;
+        border-bottom: 1px solid currentColor;
+      }
+      section { margin-top: 2.5rem; }
+      h2 {
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--muted);
+        margin-bottom: 0.75rem;
+      }
+      code {
+        background: rgba(0,0,0,0.05);
+        padding: 0.15em 0.35em;
+        border-radius: 4px;
+        font-size: 0.9em;
+        word-break: break-all;
+      }
+      @media (prefers-color-scheme: dark) {
+        code { background: rgba(255,255,255,0.08); }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Holland Daily<span class="dot">.</span></h1>
+      <p class="tagline">オランダの朝ニュース、日本語で。</p>
+
+      <section>
+        <h2>Podcast</h2>
+        <p>
+          <a href="feed.xml">RSSフィードを購読</a> — お使いの Podcast アプリで
+          <code>feed.xml</code> の URL を追加してください。
+        </p>
+      </section>
+
+      <section>
+        <h2>About</h2>
+        <p>
+          毎朝9時 (オランダ時間)、オランダの主要ニュースを日本語で要約してお届けします。
+          政治・経済・社会・テックなどカテゴリ別に、10分から15分のポッドキャストで。
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
