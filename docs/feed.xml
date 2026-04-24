@@ -13,7 +13,7 @@
       <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     </image>
     <language>ja</language>
-    <lastBuildDate>Fri, 24 Apr 2026 20:26:41 +0000</lastBuildDate>
+    <lastBuildDate>Fri, 24 Apr 2026 20:55:06 +0000</lastBuildDate>
     <itunes:author>Holland Daily</itunes:author>
     <itunes:category text="News">
       <itunes:category text="Daily News"/>
@@ -30,7 +30,7 @@
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3</link>
       <description>2026-04-24 のオランダニュース要約 (日本語・約13分)</description>
       <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3</guid>
-      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3" length="13091757" type="audio/mpeg"/>
+      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3" length="12225069" type="audio/mpeg"/>
       <pubDate>Fri, 24 Apr 2026 07:00:00 +0000</pubDate>
       <itunes:duration>13:00</itunes:duration>
     </item>
