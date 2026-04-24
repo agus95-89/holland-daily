@@ -10,7 +10,7 @@ from zoneinfo import ZoneInfo
 import yaml
 from anthropic import Anthropic
 
-from . import article, podcast, rss, script, slack, tts
+from . import article, mailer, podcast, rss, script, slack, tts
 from .summarize import summarize
 
 logging.basicConfig(
@@ -107,7 +107,7 @@ def main() -> int:
     base_url = os.environ.get("PODCAST_BASE_URL") or cfg["podcast"]["base_url"]
     base_url = base_url.rstrip("/")
 
-    log.info("[7/7] Updating podcast feed and posting to Slack...")
+    log.info("[7/7] Updating podcast feed and sending notifications...")
     podcast.update_feed(
         feed_path=FEED_PATH,
         episodes_dir=EPISODES_DIR,
@@ -120,15 +120,53 @@ def main() -> int:
         itunes_subcategory=cfg["podcast"]["itunes_subcategory"],
     )
 
-    slack.post(
-        webhook_url=os.environ["SLACK_WEBHOOK_URL"],
-        summaries=top,
-        episode_url=f"{base_url}/episodes/{mp3_path.name}",
-        feed_url=f"{base_url}/feed.xml",
-        today=today,
-        username=cfg["slack"]["username"],
-        icon_emoji=cfg["slack"]["icon_emoji"],
-    )
+    episode_url = f"{base_url}/episodes/{mp3_path.name}"
+    feed_url = f"{base_url}/feed.xml"
+
+    notified = False
+
+    slack_url = os.environ.get("SLACK_WEBHOOK_URL")
+    if slack_url:
+        try:
+            slack.post(
+                webhook_url=slack_url,
+                summaries=top,
+                episode_url=episode_url,
+                feed_url=feed_url,
+                today=today,
+                username=cfg["slack"]["username"],
+                icon_emoji=cfg["slack"]["icon_emoji"],
+            )
+            notified = True
+        except Exception as e:
+            log.error("Slack notification failed: %s", e)
+
+    resend_key = os.environ.get("RESEND_API_KEY")
+    email_to = [e.strip() for e in os.environ.get("EMAIL_TO", "").split(",") if e.strip()]
+    email_from = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
+    if resend_key and email_to:
+        try:
+            mailer.send_via_resend(
+                api_key=resend_key,
+                from_email=email_from,
+                to_emails=email_to,
+                summaries=top,
+                episode_url=episode_url,
+                feed_url=feed_url,
+                today=today,
+                show_name=cfg["podcast"]["show_name"],
+                subtitle=cfg["podcast"]["show_subtitle"],
+            )
+            notified = True
+        except Exception as e:
+            log.error("Email notification failed: %s", e)
+    elif resend_key and not email_to:
+        log.warning("RESEND_API_KEY is set but EMAIL_TO is empty — skipping email")
+
+    if not notified:
+        log.error(
+            "No notification channel configured. Set SLACK_WEBHOOK_URL or RESEND_API_KEY + EMAIL_TO."
+        )
 
     log.info("=== Holland Daily pipeline completed ===")
     return 0
