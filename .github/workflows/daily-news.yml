@@ -54,6 +54,7 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_AUDIENCE_ID: ${{ vars.RESEND_AUDIENCE_ID }}
           EMAIL_FROM: ${{ vars.EMAIL_FROM }}
           EMAIL_TO: ${{ vars.EMAIL_TO }}
           PODCAST_BASE_URL: ${{ vars.PODCAST_BASE_URL }}

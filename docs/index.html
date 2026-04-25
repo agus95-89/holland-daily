@@ -3,38 +3,55 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Holland Daily — オランダの朝ニュース</title>
+    <title>Holland Daily — オランダのニュースを、日本語で。</title>
+    <meta name="description" content="毎朝9時、オランダの主要ニュースを日本語で。HARRO がお届けする、在蘭日本人のための日刊ニュースメディア。" />
+    <meta property="og:title" content="Holland Daily" />
+    <meta property="og:description" content="オランダのニュースを、日本語で。毎朝9時、ポッドキャストとメルマガで配信。" />
+    <meta property="og:type" content="website" />
     <style>
       :root {
         color-scheme: light dark;
         --bg: #faf7f2;
         --fg: #1a1a1a;
-        --accent: #ff6b35;
         --muted: #6b6b6b;
+        --accent: #ff6b35;
+        --card: #ffffff;
+        --border: rgba(0,0,0,0.1);
       }
       @media (prefers-color-scheme: dark) {
-        :root { --bg: #121212; --fg: #ececec; --muted: #9a9a9a; }
+        :root {
+          --bg: #0f0f0f;
+          --fg: #ececec;
+          --muted: #9a9a9a;
+          --card: #1a1a1a;
+          --border: rgba(255,255,255,0.1);
+        }
       }
       * { box-sizing: border-box; }
+      html, body { margin: 0; padding: 0; }
       body {
-        margin: 0;
         font-family: -apple-system, "Helvetica Neue", Arial, "Hiragino Sans", "Yu Gothic", sans-serif;
         background: var(--bg);
         color: var(--fg);
         line-height: 1.7;
       }
       main {
-        max-width: 640px;
+        max-width: 580px;
         margin: 0 auto;
-        padding: 4rem 1.5rem;
+        padding: 5rem 1.5rem 3rem;
       }
-      .presenter {
+      .logo {
+        height: 44px;
+        display: block;
+        margin-bottom: 2rem;
+      }
+      .logo-fallback {
         font-size: 0.7rem;
         font-weight: 700;
         letter-spacing: 0.2em;
         text-transform: uppercase;
         color: var(--accent);
-        margin: 0 0 1.5rem;
+        margin: 0 0 2rem;
       }
       h1 {
         font-size: 4rem;
@@ -42,46 +59,105 @@
         letter-spacing: -0.04em;
         margin: 0 0 0.5rem;
       }
+      .dot { color: var(--accent); }
       .tagline {
         font-size: 1.1rem;
         color: var(--muted);
         margin: 0 0 3rem;
       }
-      .dot { color: var(--accent); }
-      a {
-        color: var(--accent);
-        text-decoration: none;
-        border-bottom: 1px solid currentColor;
+      .lead {
+        font-size: 1rem;
+        line-height: 1.8;
+        margin-bottom: 2.5rem;
       }
-      section { margin-top: 2.5rem; }
-      h2 {
-        font-size: 0.85rem;
+      .subscribe-card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        padding: 1.75rem;
+        margin-bottom: 1rem;
+      }
+      .subscribe-card h3 {
+        margin: 0 0 0.25rem;
+        font-size: 1rem;
         font-weight: 600;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
+      }
+      .subscribe-card p {
+        margin: 0 0 1.25rem;
+        font-size: 0.85rem;
         color: var(--muted);
-        margin-bottom: 0.75rem;
       }
-      code {
-        background: rgba(0,0,0,0.05);
-        padding: 0.15em 0.35em;
-        border-radius: 4px;
-        font-size: 0.9em;
-        word-break: break-all;
+      .form {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
       }
-      @media (prefers-color-scheme: dark) {
-        code { background: rgba(255,255,255,0.08); }
+      .form input[type="email"] {
+        flex: 1 1 220px;
+        min-width: 0;
+        padding: 0.7rem 0.9rem;
+        font-size: 0.95rem;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--bg);
+        color: var(--fg);
+        font-family: inherit;
+      }
+      .form input[type="email"]:focus {
+        outline: none;
+        border-color: var(--accent);
+      }
+      .form button {
+        padding: 0.7rem 1.4rem;
+        font-size: 0.95rem;
+        font-weight: 500;
+        background: var(--fg);
+        color: var(--bg);
+        border: none;
+        border-radius: 8px;
+        cursor: pointer;
+        font-family: inherit;
+        transition: opacity 0.15s;
+      }
+      .form button:hover { opacity: 0.85; }
+      .form button:disabled { opacity: 0.5; cursor: not-allowed; }
+      .status {
+        margin-top: 0.75rem;
+        font-size: 0.85rem;
+        min-height: 1.2rem;
+      }
+      .status.ok { color: #0a8a4c; }
+      .status.err { color: #c0392b; }
+      .podcast-links {
+        display: flex;
+        gap: 1rem;
+        flex-wrap: wrap;
+        font-size: 0.9rem;
+      }
+      .podcast-links a {
+        color: var(--fg);
+        text-decoration: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1px;
+      }
+      .podcast-links a:hover { border-bottom-color: var(--accent); }
+      .about {
+        margin-top: 3rem;
+        font-size: 0.95rem;
+        color: var(--muted);
       }
       footer {
-        margin-top: 4rem;
+        margin-top: 3.5rem;
         padding-top: 2rem;
-        border-top: 1px solid rgba(128,128,128,0.2);
+        border-top: 1px solid var(--border);
         text-align: center;
         font-size: 0.9rem;
       }
       footer a {
         color: var(--fg);
-        border-bottom-color: rgba(128,128,128,0.3);
+        text-decoration: none;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 1px;
       }
       footer .sep {
         color: var(--muted);
@@ -97,25 +173,36 @@
   </head>
   <body>
     <main>
-      <p class="presenter">Presented by HARRO</p>
+      <img src="harro-logo.png" alt="HARRO" class="logo"
+           onerror="this.style.display='none';document.getElementById('fb').style.display='block'" />
+      <p class="logo-fallback" id="fb" style="display:none">Presented by HARRO</p>
+
       <h1>Holland Daily<span class="dot">.</span></h1>
       <p class="tagline">オランダのニュースを、日本語で。</p>
 
-      <section>
-        <h2>Podcast</h2>
-        <p>
-          <a href="feed.xml">RSSフィードを購読</a> — お使いの Podcast アプリで
-          <code>feed.xml</code> の URL を追加してください。
-        </p>
-      </section>
+      <p class="lead">
+        毎朝9時（オランダ時間）、オランダの主要ニュースを日本語で要約して、ポッドキャストとメールでお届けします。政治・経済・社会・テックなど、在蘭日本人に必要な情報を10〜15分で。
+      </p>
 
-      <section>
-        <h2>About</h2>
-        <p>
-          毎朝9時 (オランダ時間)、オランダの主要ニュースを日本語で要約してお届けします。
-          政治・経済・社会・テックなどカテゴリ別に、10分から15分のポッドキャストで。
-        </p>
-      </section>
+      <div class="subscribe-card">
+        <h3>📧 メルマガで購読</h3>
+        <p>毎朝、メールで記事と音声リンクが届きます。</p>
+        <form class="form" id="sf">
+          <input type="email" id="em" placeholder="your@email.com" required autocomplete="email" />
+          <button type="submit" id="sb">購読する</button>
+        </form>
+        <div class="status" id="st"></div>
+      </div>
+
+      <div class="subscribe-card">
+        <h3>🎧 ポッドキャストで聴く</h3>
+        <p>Apple Podcasts や Spotify に追加するにはRSSを登録してください。</p>
+        <div class="podcast-links">
+          <a href="feed.xml">RSSフィード</a>
+          <a href="https://podcasts.apple.com/">Apple Podcasts</a>
+          <a href="https://open.spotify.com/">Spotify</a>
+        </div>
+      </div>
 
       <footer>
         <a href="https://shop.harrojp.com/ja-nl">HARRO Online Shop</a>
@@ -124,5 +211,48 @@
         <div class="credit">Presented by HARRO</div>
       </footer>
     </main>
+
+    <script>
+      const SUBSCRIBE_ENDPOINT = "https://hd-subscribe.suga-d70.workers.dev";
+
+      const form = document.getElementById("sf");
+      const emailInput = document.getElementById("em");
+      const submitBtn = document.getElementById("sb");
+      const status = document.getElementById("st");
+
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = emailInput.value.trim();
+        if (!email) return;
+
+        submitBtn.disabled = true;
+        status.className = "status";
+        status.textContent = "送信中...";
+
+        try {
+          const resp = await fetch(SUBSCRIBE_ENDPOINT, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          });
+          const data = await resp.json();
+          if (resp.ok) {
+            status.className = "status ok";
+            status.textContent = data.message === "Already subscribed"
+              ? "すでに購読済みです。"
+              : "購読ありがとうございます。確認メールをお送りしました。";
+            emailInput.value = "";
+          } else {
+            status.className = "status err";
+            status.textContent = data.error || "送信に失敗しました。";
+          }
+        } catch (err) {
+          status.className = "status err";
+          status.textContent = "ネットワークエラーが発生しました。";
+        } finally {
+          submitBtn.disabled = false;
+        }
+      });
+    </script>
   </body>
 </html>

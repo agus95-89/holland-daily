@@ -19,6 +19,23 @@ CATEGORY_COLOR = {
 }
 
 
+def get_audience_contacts(api_key: str, audience_id: str) -> list[str]:
+    resp = requests.get(
+        f"https://api.resend.com/audiences/{audience_id}/contacts",
+        headers={"Authorization": f"Bearer {api_key}"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    data = resp.json()
+    emails = [
+        c["email"]
+        for c in data.get("data", [])
+        if c.get("email") and not c.get("unsubscribed")
+    ]
+    log.info("Fetched %d active contacts from audience %s", len(emails), audience_id)
+    return emails
+
+
 def send_via_resend(
     api_key: str,
     from_email: str,
@@ -32,30 +49,39 @@ def send_via_resend(
     presented_by: str = "HARRO",
     shop_url: str = "",
     instagram_url: str = "",
+    logo_url: str = "",
 ) -> None:
     subject = f"{show_name} — {today.strftime('%Y年%m月%d日')}"
     html = _build_html(
         summaries, episode_url, feed_url, today,
-        show_name, subtitle, presented_by, shop_url, instagram_url,
+        show_name, subtitle, presented_by, shop_url, instagram_url, logo_url,
     )
 
-    resp = requests.post(
-        "https://api.resend.com/emails",
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json={
-            "from": from_email,
-            "to": to_emails,
-            "subject": subject,
-            "html": html,
-        },
-        timeout=30,
-    )
-    resp.raise_for_status()
-    msg_id = resp.json().get("id", "unknown")
-    log.info("Email sent to %s (id=%s)", to_emails, msg_id)
+    sent = 0
+    failed = 0
+    for recipient in to_emails:
+        try:
+            resp = requests.post(
+                "https://api.resend.com/emails",
+                headers={
+                    "Authorization": f"Bearer {api_key}",
+                    "Content-Type": "application/json",
+                },
+                json={
+                    "from": from_email,
+                    "to": [recipient],
+                    "subject": subject,
+                    "html": html,
+                },
+                timeout=30,
+            )
+            resp.raise_for_status()
+            sent += 1
+        except Exception as e:
+            failed += 1
+            log.error("Failed to send to %s: %s", recipient, e)
+
+    log.info("Email delivery: %d sent, %d failed (of %d total)", sent, failed, len(to_emails))
 
 
 def _build_html(
@@ -68,6 +94,7 @@ def _build_html(
     presented_by: str,
     shop_url: str,
     instagram_url: str,
+    logo_url: str,
 ) -> str:
     grouped: dict[str, list[Summary]] = {}
     for s in sorted(summaries, key=lambda x: -x.importance):
@@ -111,7 +138,7 @@ def _build_html(
 <tr><td align="center">
 <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:40px 20px;">
 <tr><td style="padding:40px 32px;">
-<div style="font-size:11px;color:#ff6b35;letter-spacing:0.2em;text-transform:uppercase;font-weight:700;margin-bottom:24px;">Presented by {_esc(presented_by)}</div>
+{_build_logo_block(logo_url, presented_by)}
 <div style="font-size:11px;color:#999;letter-spacing:0.15em;text-transform:uppercase;">{date_str}</div>
 <h1 style="font-size:40px;font-weight:200;letter-spacing:-0.04em;margin:4px 0 8px;color:#1a1a1a;">{_esc(show_name)}<span style="color:#ff6b35;">.</span></h1>
 <div style="color:#666;font-size:15px;margin-bottom:28px;">{_esc(subtitle)}</div>
@@ -126,6 +153,21 @@ def _build_html(
 </td></tr>
 </table>
 </body></html>"""
+
+
+def _build_logo_block(logo_url: str, presented_by: str) -> str:
+    if logo_url:
+        return (
+            f'<div style="margin-bottom:32px;">'
+            f'<img src="{_esc(logo_url)}" alt="{_esc(presented_by)}" '
+            f'style="height:44px;display:block;" />'
+            f'</div>'
+        )
+    return (
+        f'<div style="font-size:11px;color:#ff6b35;letter-spacing:0.2em;'
+        f'text-transform:uppercase;font-weight:700;margin-bottom:24px;">'
+        f'Presented by {_esc(presented_by)}</div>'
+    )
 
 
 def _build_harro_footer(shop_url: str, instagram_url: str, presented_by: str) -> str:

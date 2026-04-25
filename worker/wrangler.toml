@@ -1,0 +1,12 @@
+name = "hd-subscribe"
+main = "src/index.js"
+compatibility_date = "2025-01-01"
+
+# Non-secret config (set via wrangler.toml)
+[vars]
+ALLOWED_ORIGIN = "https://agus95-89.github.io"
+EMAIL_FROM = "onboarding@resend.dev"
+
+# Secret values (set via `wrangler secret put` or Cloudflare dashboard):
+#   RESEND_API_KEY
+#   RESEND_AUDIENCE_ID

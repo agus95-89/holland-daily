@@ -142,8 +142,19 @@ def main() -> int:
             log.error("Slack notification failed: %s", e)
 
     resend_key = os.environ.get("RESEND_API_KEY")
-    email_to = [e.strip() for e in os.environ.get("EMAIL_TO", "").split(",") if e.strip()]
+    audience_id = os.environ.get("RESEND_AUDIENCE_ID", "").strip()
     email_from = os.environ.get("EMAIL_FROM", "onboarding@resend.dev")
+
+    email_to: list[str] = []
+    if resend_key and audience_id:
+        try:
+            email_to = mailer.get_audience_contacts(resend_key, audience_id)
+        except Exception as e:
+            log.error("Failed to fetch audience contacts: %s", e)
+
+    if not email_to:
+        email_to = [e.strip() for e in os.environ.get("EMAIL_TO", "").split(",") if e.strip()]
+
     if resend_key and email_to:
         try:
             mailer.send_via_resend(
@@ -159,12 +170,13 @@ def main() -> int:
                 presented_by=cfg["podcast"].get("presented_by", "HARRO"),
                 shop_url=cfg.get("links", {}).get("harro_shop", ""),
                 instagram_url=cfg.get("links", {}).get("harro_instagram", ""),
+                logo_url=cfg.get("links", {}).get("harro_logo", ""),
             )
             notified = True
         except Exception as e:
             log.error("Email notification failed: %s", e)
     elif resend_key and not email_to:
-        log.warning("RESEND_API_KEY is set but EMAIL_TO is empty — skipping email")
+        log.warning("RESEND_API_KEY is set but no recipients (Audience empty and EMAIL_TO empty)")
 
     if not notified:
         log.error(
