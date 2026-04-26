@@ -30,9 +30,10 @@ sources:
     url: https://www.rijksoverheid.nl/documenten.rss
     enabled: true
 
-# Top selection cap to keep diversity
+# Top selection: dedupe + source diversification
 selection:
   max_per_source: 3
+  candidate_pool: 18  # consider top-N by importance, then dedupe and trim to max_articles
 
 categories:
   - 政治・政策

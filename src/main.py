@@ -11,7 +11,7 @@ import yaml
 from anthropic import Anthropic
 from dotenv import load_dotenv
 
-from . import article, images, long_form, mailer, markdown_writer, podcast, rss, script, slack, tts
+from . import article, dedupe, images, long_form, mailer, markdown_writer, podcast, rss, script, slack, tts
 from .summarize import summarize
 
 # Load .env if present (no-op on CI where env vars come from secrets)
@@ -96,13 +96,32 @@ def main() -> int:
         log.warning("No summaries produced, exiting")
         return 0
 
-    log.info("[4/8] Selecting top articles...")
+    log.info("[4/8] Selecting top articles (dedupe + source cap)...")
     max_per_source = cfg.get("selection", {}).get("max_per_source", 0)
+    candidate_pool = cfg.get("selection", {}).get("candidate_pool", sched["max_articles"] + 8)
+
     ranked = sorted(summaries, key=lambda s: -s.importance)
+    candidates = ranked[:candidate_pool]
+
+    # Step A: ask Claude to detect semantic duplicates among the candidate pool
+    if len(candidates) >= 2:
+        groups = dedupe.find_duplicate_groups(candidates, client=client, model=model)
+        if groups:
+            log.info("  Dedupe: %d duplicate group(s): %s", len(groups), groups)
+            result = dedupe.apply_dedupe(candidates, groups)
+            log.info("  Dedupe: kept %d, dropped %d duplicates",
+                     len(result.kept), len(result.dropped))
+            for d in result.dropped:
+                log.info("    drop: %s (%s)", d.title_ja, d.source)
+            candidates = result.kept
+        else:
+            log.info("  Dedupe: no duplicate groups detected")
+
+    # Step B: source diversification
     if max_per_source > 0:
         per_source: dict[str, int] = {}
         diversified = []
-        for s in ranked:
+        for s in candidates:
             count = per_source.get(s.source, 0)
             if count >= max_per_source:
                 continue
@@ -110,10 +129,10 @@ def main() -> int:
             per_source[s.source] = count + 1
             if len(diversified) >= sched["max_articles"]:
                 break
-        # Fall back to ranked order if diversification left us short
+        # Top up from remaining candidates if short
         if len(diversified) < sched["max_articles"]:
             seen_links = {s.original_link for s in diversified}
-            for s in ranked:
+            for s in candidates:
                 if s.original_link in seen_links:
                     continue
                 diversified.append(s)
@@ -124,7 +143,7 @@ def main() -> int:
                  len(top), max_per_source,
                  ", ".join(f"{src}:{cnt}" for src, cnt in sorted(per_source.items(), key=lambda x: -x[1])))
     else:
-        top = ranked[: sched["max_articles"]]
+        top = candidates[: sched["max_articles"]]
         log.info("  Top %d selected (no source cap)", len(top))
 
     log.info("[5/8] Generating long-form Markdown articles for harro-life-site...")
