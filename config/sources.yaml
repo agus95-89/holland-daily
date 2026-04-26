@@ -46,11 +46,11 @@ tts:
   speaking_rate: 1.05
 
 podcast:
-  show_name: Holland Daily
+  show_name: HARRO LIFE
   show_subtitle: オランダのニュースを、日本語で。
   presented_by: HARRO
-  author: Holland Daily
-  email: hollandaily@example.com
+  author: HARRO LIFE
+  email: suga@harrojp.com
   base_url: https://agus95-89.github.io/holland-daily
   itunes_category: News
   itunes_subcategory: Daily News
@@ -61,5 +61,5 @@ links:
   harro_logo: https://agus95-89.github.io/holland-daily/harro-logo.png
 
 slack:
-  username: Holland Daily
+  username: HARRO LIFE
   icon_emoji: ":sunrise:"

@@ -208,6 +208,8 @@ def main() -> int:
     if not email_to:
         email_to = [e.strip() for e in os.environ.get("EMAIL_TO", "").split(",") if e.strip()]
 
+    site_url = os.environ.get("SITE_URL", "https://harro-life-site.pages.dev").rstrip("/")
+
     if resend_key and email_to:
         try:
             mailer.send_via_resend(
@@ -224,6 +226,7 @@ def main() -> int:
                 shop_url=cfg.get("links", {}).get("harro_shop", ""),
                 instagram_url=cfg.get("links", {}).get("harro_instagram", ""),
                 logo_url=cfg.get("links", {}).get("harro_logo", ""),
+                site_url=site_url,
             )
             notified = True
         except Exception as e:

@@ -44,17 +44,18 @@ def send_via_resend(
     episode_url: str,
     feed_url: str,
     today: date,
-    show_name: str = "Holland Daily",
+    show_name: str = "HARRO LIFE",
     subtitle: str = "オランダのニュースを、日本語で。",
     presented_by: str = "HARRO",
     shop_url: str = "",
     instagram_url: str = "",
     logo_url: str = "",
+    site_url: str = "",
 ) -> None:
     subject = f"{show_name} — {today.strftime('%Y年%m月%d日')}"
     html = _build_html(
         summaries, episode_url, feed_url, today,
-        show_name, subtitle, presented_by, shop_url, instagram_url, logo_url,
+        show_name, subtitle, presented_by, shop_url, instagram_url, logo_url, site_url,
     )
 
     sent = 0
@@ -95,6 +96,7 @@ def _build_html(
     shop_url: str,
     instagram_url: str,
     logo_url: str,
+    site_url: str,
 ) -> str:
     grouped: dict[str, list[Summary]] = {}
     for s in sorted(summaries, key=lambda x: -x.importance):
@@ -107,7 +109,6 @@ def _build_html(
         color = CATEGORY_COLOR.get(cat, "#333333")
         articles_html = ""
         for s in items:
-            stars = "★" * s.importance + "☆" * (5 - s.importance)
             articles_html += (
                 '<tr><td style="padding:16px 0;border-bottom:1px solid #eee;">'
                 f'<a href="{_esc(s.original_link)}" '
@@ -115,7 +116,7 @@ def _build_html(
                 'font-size:16px;line-height:1.4;">'
                 f"{_esc(s.title_ja)}</a>"
                 f'<div style="color:#999;font-size:12px;margin-top:4px;">'
-                f"{_esc(s.source)} · {stars}</div>"
+                f"{_esc(s.source)}</div>"
                 f'<div style="color:#444;font-size:14px;line-height:1.6;margin-top:8px;">'
                 f"{_esc(s.summary_ja)}</div>"
                 "</td></tr>"
@@ -131,6 +132,9 @@ def _build_html(
             "</td></tr>"
         )
 
+    cta_buttons = _build_cta_buttons(episode_url, site_url)
+    site_cta_block = _build_site_cta_block(site_url)
+
     return f"""<!doctype html>
 <html lang="ja">
 <body style="margin:0;padding:0;background:#faf7f2;font-family:-apple-system,'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif;">
@@ -140,12 +144,13 @@ def _build_html(
 <tr><td style="padding:40px 32px;">
 {_build_logo_block(logo_url, presented_by)}
 <div style="font-size:11px;color:#999;letter-spacing:0.15em;text-transform:uppercase;">{date_str}</div>
-<h1 style="font-size:40px;font-weight:200;letter-spacing:-0.04em;margin:4px 0 8px;color:#1a1a1a;">{_esc(show_name)}<span style="color:#ff6b35;">.</span></h1>
+<h1 style="font-size:40px;font-weight:200;letter-spacing:-0.04em;margin:4px 0 8px;color:#1a1a1a;">{_esc(show_name)}<span style="color:#9E3E24;">.</span></h1>
 <div style="color:#666;font-size:15px;margin-bottom:28px;">{_esc(subtitle)}</div>
-<a href="{_esc(episode_url)}" style="display:inline-block;background:#1a1a1a;color:#ffffff;padding:14px 28px;text-decoration:none;border-radius:999px;font-size:14px;font-weight:500;">今日のエピソードを聴く</a>
+{cta_buttons}
 <table width="100%" cellpadding="0" cellspacing="0">{sections_html}</table>
-<div style="margin-top:48px;padding-top:24px;border-top:1px solid #eee;color:#999;font-size:12px;line-height:1.8;">
-<a href="{_esc(feed_url)}" style="color:#ff6b35;text-decoration:none;">Podcast RSSで購読</a>
+{site_cta_block}
+<div style="margin-top:32px;padding-top:24px;border-top:1px solid #eee;color:#999;font-size:12px;line-height:1.8;">
+<a href="{_esc(feed_url)}" style="color:#9E3E24;text-decoration:none;">Podcast RSSで購読</a>
 </div>
 {_build_harro_footer(shop_url, instagram_url, presented_by)}
 </td></tr>
@@ -153,6 +158,46 @@ def _build_html(
 </td></tr>
 </table>
 </body></html>"""
+
+
+def _build_cta_buttons(episode_url: str, site_url: str) -> str:
+    listen_btn = (
+        f'<a href="{_esc(episode_url)}" '
+        'style="display:inline-block;background:#1a1a1a;color:#ffffff;'
+        'padding:14px 28px;text-decoration:none;border-radius:999px;'
+        'font-size:14px;font-weight:500;margin:0 6px 8px 0;">'
+        '今日のエピソードを聴く</a>'
+    )
+    if not site_url:
+        return listen_btn
+    site_btn = (
+        f'<a href="{_esc(site_url)}" '
+        'style="display:inline-block;background:#ffffff;color:#9E3E24;'
+        'padding:13px 28px;text-decoration:none;border-radius:999px;'
+        'border:1.5px solid #9E3E24;font-size:14px;font-weight:600;'
+        'margin:0 6px 8px 0;">'
+        'サイトで読む</a>'
+    )
+    return listen_btn + site_btn
+
+
+def _build_site_cta_block(site_url: str) -> str:
+    if not site_url:
+        return ""
+    return (
+        '<div style="margin-top:40px;padding:28px;background:#faf7f2;'
+        'border-radius:12px;text-align:center;">'
+        '<div style="font-size:15px;color:#1a1a1a;margin-bottom:14px;'
+        'line-height:1.6;">'
+        'すべての記事は HARRO LIFE のサイトでも読めます。'
+        '</div>'
+        f'<a href="{_esc(site_url)}" '
+        'style="display:inline-block;background:#9E3E24;color:#ffffff;'
+        'padding:14px 32px;text-decoration:none;border-radius:999px;'
+        'font-size:14px;font-weight:600;">'
+        'HARRO LIFE で全記事を読む →</a>'
+        '</div>'
+    )
 
 
 def _build_logo_block(logo_url: str, presented_by: str) -> str:

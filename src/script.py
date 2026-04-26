@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from datetime import date
 
 from anthropic import Anthropic
@@ -9,12 +10,17 @@ from .summarize import Summary
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """あなたはオランダ在住日本人向け日刊ニュースポッドキャスト「Holland Daily」の台本ライターです。
+SYSTEM_PROMPT = """あなたはオランダ在住日本人向け日刊ニュースポッドキャスト「HARRO LIFE」の台本ライターです。
 この番組は HARRO が提供しています。
 与えられた記事の要約を基に、12〜15分で読み上げ可能な自然な日本語の台本を書いてください。
 
+【読み方の重要ルール】
+- 「HARRO」は必ずカタカナで「ハロー」と書き、TTS が「ハロー」と発音するようにする
+- 「HARRO」をアルファベット表記で残してはいけない (アルファベットで残すと TTS が「えいち・えー・あーる・あーる・おー」と読み上げてしまう)
+- 番組名は台本中ではすべて「ハロー LIFE」または「ハローライフ」とカタカナ寄りで表記する
+
 【構成】
-- 冒頭: 女性ナレーターが「HARRO がお届けする Holland Daily」と番組名を告げ、今日の日付、今日のハイライトを1文で紹介
+- 冒頭: 女性ナレーターが「ハローがお届けする、ハロー LIFE」と番組名を告げ、今日の日付、今日のハイライトを1文で紹介
 - 本編: カテゴリごとに区切り、切り替え時は女性ナレーターが1文で橋渡し
   - カテゴリ内の各記事は男性ナレーターが読む
   - 各記事は「自然な導入 → 要約を聴き手に伝わる話し言葉で展開 → 原題やソースへの軽い言及」で構成
@@ -67,5 +73,8 @@ def build_script(summaries: list[Summary], today: date, client: Anthropic, model
 
     text_parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
     script = "".join(text_parts).strip()
+    # Safety net: TTS reads bare "HARRO" letter-by-letter ("えいち・えー・あーる・あーる・おー").
+    # Force katakana "ハロー" even if the model leaves the name as letters.
+    script = re.sub(r"\bHARRO\b", "ハロー", script)
     log.info("Generated script: %d chars", len(script))
     return script
