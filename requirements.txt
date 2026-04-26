@@ -7,3 +7,4 @@ PyYAML>=6.0.1
 requests>=2.32.0
 python-dateutil>=2.9.0
 feedgen>=1.0.0
+python-dotenv>=1.0.0

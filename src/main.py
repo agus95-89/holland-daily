@@ -9,9 +9,13 @@ from zoneinfo import ZoneInfo
 
 import yaml
 from anthropic import Anthropic
+from dotenv import load_dotenv
 
-from . import article, mailer, podcast, rss, script, slack, tts
+from . import article, images, long_form, mailer, markdown_writer, podcast, rss, script, slack, tts
 from .summarize import summarize
+
+# Load .env if present (no-op on CI where env vars come from secrets)
+load_dotenv(Path(__file__).resolve().parents[1] / ".env")
 
 logging.basicConfig(
     level=logging.INFO,
@@ -24,6 +28,10 @@ CONFIG_PATH = ROOT / "config" / "sources.yaml"
 DOCS_DIR = ROOT / "docs"
 EPISODES_DIR = DOCS_DIR / "episodes"
 FEED_PATH = DOCS_DIR / "feed.xml"
+
+# Phase 2: where Markdown news articles are written for harro-life-site.
+# Override via MARKDOWN_OUTPUT_DIR env var (CI sets this to a workspace path).
+DEFAULT_MARKDOWN_DIR = ROOT.parent / "harro-life-site" / "src" / "content" / "news"
 
 
 def should_run(target_hour: int, tz: str) -> bool:
@@ -47,23 +55,24 @@ def main() -> int:
     today = datetime.now(ZoneInfo(sched["timezone"])).date()
     log.info("=== Holland Daily pipeline run for %s ===", today)
 
-    log.info("[1/7] Fetching RSS feeds...")
+    log.info("[1/8] Fetching RSS feeds...")
     items = rss.fetch_all(cfg["sources"], window_hours=sched.get("window_hours", 26))
     log.info("  %d unique items from last %dh", len(items), sched.get("window_hours", 26))
     if not items:
         log.warning("No items fetched, exiting cleanly")
         return 0
 
-    log.info("[2/7] Extracting article bodies...")
+    log.info("[2/8] Extracting article bodies and og:image...")
     articles: list[dict] = []
     for it in items[: sched.get("candidate_pool_cap", 25)]:
-        body = article.fetch_body(it.link, fallback=it.summary)
+        fetched = article.fetch_article(it.link, fallback=it.summary)
         articles.append(
             {
                 "title": it.title,
                 "link": it.link,
                 "summary": it.summary,
-                "body": body,
+                "body": fetched["body"],
+                "og_image": fetched.get("image"),
                 "source": it.source,
                 "published": it.published,
             }
@@ -73,7 +82,7 @@ def main() -> int:
     client = Anthropic()
     model = cfg["claude"]["model"]
 
-    log.info("[3/7] Summarizing with Claude...")
+    log.info("[3/8] Summarizing with Claude...")
     summaries = []
     for i, a in enumerate(articles, 1):
         s = summarize(a, client=client, model=model,
@@ -87,14 +96,58 @@ def main() -> int:
         log.warning("No summaries produced, exiting")
         return 0
 
-    log.info("[4/7] Selecting top articles...")
+    log.info("[4/8] Selecting top articles...")
     top = sorted(summaries, key=lambda s: -s.importance)[: sched["max_articles"]]
     log.info("  Top %d selected", len(top))
 
-    log.info("[5/7] Generating podcast script...")
+    log.info("[5/8] Generating long-form Markdown articles for harro-life-site...")
+    markdown_dir = Path(os.environ.get("MARKDOWN_OUTPUT_DIR") or DEFAULT_MARKDOWN_DIR)
+    unsplash_key = os.environ.get("UNSPLASH_ACCESS_KEY", "").strip()
+    article_by_link = {a["link"]: a for a in articles}
+    written_paths: list[Path] = []
+    for i, summary_obj in enumerate(top, 1):
+        article_dict = article_by_link.get(summary_obj.original_link)
+        if article_dict is None:
+            log.warning("Article body not found for %s, skipping Markdown", summary_obj.original_link)
+            continue
+        long_form_obj = long_form.expand(
+            article_dict,
+            summary_obj,
+            client=client,
+            model=model,
+            max_body_chars=cfg["claude"]["max_body_chars"],
+        )
+        if long_form_obj is None:
+            log.warning("Long-form failed for %s, skipping Markdown", summary_obj.original_link)
+            continue
+        image_url = article_dict.get("og_image")
+        image_alt: str | None = None
+        if image_url:
+            image_alt = long_form_obj.title_ja
+        elif unsplash_key and long_form_obj.image_query:
+            image_url = images.search_unsplash(long_form_obj.image_query, unsplash_key)
+            if image_url:
+                image_alt = long_form_obj.image_query
+        path = markdown_writer.write_news_markdown(
+            long_form=long_form_obj,
+            summary=summary_obj,
+            pub_date=today,
+            index=i,
+            output_dir=markdown_dir,
+            image_url=image_url,
+            image_alt=image_alt,
+            featured=(i == 1),
+            breaking=(summary_obj.importance >= 5),
+        )
+        written_paths.append(path)
+        if i % 3 == 0:
+            log.info("  %d/%d Markdown files written", i, len(top))
+    log.info("  %d Markdown files written to %s", len(written_paths), markdown_dir)
+
+    log.info("[6/8] Generating podcast script...")
     script_text = script.build_script(top, today, client=client, model=model)
 
-    log.info("[6/7] Synthesizing audio (Google TTS)...")
+    log.info("[7/8] Synthesizing audio (Google TTS)...")
     mp3_path = EPISODES_DIR / f"{today.isoformat()}.mp3"
     tts.script_to_mp3(
         script_text,
@@ -107,7 +160,7 @@ def main() -> int:
     base_url = os.environ.get("PODCAST_BASE_URL") or cfg["podcast"]["base_url"]
     base_url = base_url.rstrip("/")
 
-    log.info("[7/7] Updating podcast feed and sending notifications...")
+    log.info("[8/8] Updating podcast feed and sending notifications...")
     podcast.update_feed(
         feed_path=FEED_PATH,
         episodes_dir=EPISODES_DIR,
