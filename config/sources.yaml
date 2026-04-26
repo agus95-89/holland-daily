@@ -2,11 +2,20 @@ sources:
   - name: NOS Algemeen
     url: https://feeds.nos.nl/nosnieuwsalgemeen
     enabled: true
-  - name: NOS Politiek
-    url: https://feeds.nos.nl/nosnieuwspolitiek
+  - name: Volkskrant
+    url: https://www.volkskrant.nl/voorpagina/rss.xml
     enabled: true
-  - name: NOS Economie
-    url: https://feeds.nos.nl/nosnieuwseconomie
+  - name: NRC
+    url: https://www.nrc.nl/rss/
+    enabled: true
+  - name: AD
+    url: https://www.ad.nl/home/rss.xml
+    enabled: true
+  - name: Het Parool
+    url: https://www.parool.nl/voorpagina/rss.xml
+    enabled: true
+  - name: Trouw
+    url: https://www.trouw.nl/voorpagina/rss.xml
     enabled: true
   - name: NU.nl
     url: https://www.nu.nl/rss/Algemeen
@@ -20,6 +29,10 @@ sources:
   - name: Rijksoverheid
     url: https://www.rijksoverheid.nl/documenten.rss
     enabled: true
+
+# Top selection cap to keep diversity
+selection:
+  max_per_source: 3
 
 categories:
   - 政治・政策
@@ -46,14 +59,19 @@ tts:
   speaking_rate: 1.05
 
 podcast:
-  show_name: HARRO LIFE
+  show_name: HARRO Holland Daily
   show_subtitle: オランダのニュースを、日本語で。
   presented_by: HARRO
-  author: HARRO LIFE
+  author: HARRO Holland Daily
   email: suga@harrojp.com
   base_url: https://agus95-89.github.io/holland-daily
   itunes_category: News
   itunes_subcategory: Daily News
+  feed_retention_days: 30
+
+mail:
+  show_name: HARRO LIFE
+  show_subtitle: オランダのニュースを、日本語で。
 
 links:
   harro_shop: https://shop.harrojp.com/ja-nl

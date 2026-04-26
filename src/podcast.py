@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from feedgen.feed import FeedGenerator
@@ -19,6 +19,7 @@ def update_feed(
     email: str,
     itunes_category: str = "News",
     itunes_subcategory: str = "Daily News",
+    retention_days: int = 30,
 ) -> None:
     base_url = base_url.rstrip("/")
 
@@ -45,16 +46,19 @@ def update_feed(
     if not episodes:
         log.warning("No episodes found in %s", episodes_dir)
 
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=retention_days)).date()
+    included = 0
     for ep in episodes:
         date_str = ep.stem
         try:
-            pub_date = datetime.fromisoformat(date_str).replace(
-                hour=7, minute=0, tzinfo=timezone.utc
-            )
+            ep_dt = datetime.fromisoformat(date_str)
         except ValueError:
             log.warning("Skipping non-dated episode file: %s", ep.name)
             continue
+        if ep_dt.date() < cutoff_date:
+            continue  # outside the retention window — keep file but skip in feed
 
+        pub_date = ep_dt.replace(hour=7, minute=0, tzinfo=timezone.utc)
         size = ep.stat().st_size
         fe = fg.add_entry()
         fe.id(f"{base_url}/episodes/{ep.name}")
@@ -64,7 +68,11 @@ def update_feed(
         fe.enclosure(f"{base_url}/episodes/{ep.name}", str(size), "audio/mpeg")
         fe.pubDate(pub_date)
         fe.podcast.itunes_duration("13:00")
+        included += 1
 
     feed_path.parent.mkdir(parents=True, exist_ok=True)
     fg.rss_file(str(feed_path), pretty=True)
-    log.info("Feed updated: %s (%d episodes)", feed_path, len(episodes))
+    log.info(
+        "Feed updated: %s (%d/%d episodes within %d-day retention)",
+        feed_path, included, len(episodes), retention_days,
+    )

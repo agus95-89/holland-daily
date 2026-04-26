@@ -97,8 +97,35 @@ def main() -> int:
         return 0
 
     log.info("[4/8] Selecting top articles...")
-    top = sorted(summaries, key=lambda s: -s.importance)[: sched["max_articles"]]
-    log.info("  Top %d selected", len(top))
+    max_per_source = cfg.get("selection", {}).get("max_per_source", 0)
+    ranked = sorted(summaries, key=lambda s: -s.importance)
+    if max_per_source > 0:
+        per_source: dict[str, int] = {}
+        diversified = []
+        for s in ranked:
+            count = per_source.get(s.source, 0)
+            if count >= max_per_source:
+                continue
+            diversified.append(s)
+            per_source[s.source] = count + 1
+            if len(diversified) >= sched["max_articles"]:
+                break
+        # Fall back to ranked order if diversification left us short
+        if len(diversified) < sched["max_articles"]:
+            seen_links = {s.original_link for s in diversified}
+            for s in ranked:
+                if s.original_link in seen_links:
+                    continue
+                diversified.append(s)
+                if len(diversified) >= sched["max_articles"]:
+                    break
+        top = diversified
+        log.info("  Top %d selected (max_per_source=%d, sources=%s)",
+                 len(top), max_per_source,
+                 ", ".join(f"{src}:{cnt}" for src, cnt in sorted(per_source.items(), key=lambda x: -x[1])))
+    else:
+        top = ranked[: sched["max_articles"]]
+        log.info("  Top %d selected (no source cap)", len(top))
 
     log.info("[5/8] Generating long-form Markdown articles for harro-life-site...")
     markdown_dir = Path(os.environ.get("MARKDOWN_OUTPUT_DIR") or DEFAULT_MARKDOWN_DIR)
@@ -171,6 +198,7 @@ def main() -> int:
         email=cfg["podcast"]["email"],
         itunes_category=cfg["podcast"]["itunes_category"],
         itunes_subcategory=cfg["podcast"]["itunes_subcategory"],
+        retention_days=cfg["podcast"].get("feed_retention_days", 30),
     )
 
     episode_url = f"{base_url}/episodes/{mp3_path.name}"
@@ -220,8 +248,8 @@ def main() -> int:
                 episode_url=episode_url,
                 feed_url=feed_url,
                 today=today,
-                show_name=cfg["podcast"]["show_name"],
-                subtitle=cfg["podcast"]["show_subtitle"],
+                show_name=cfg.get("mail", {}).get("show_name") or cfg["podcast"]["show_name"],
+                subtitle=cfg.get("mail", {}).get("show_subtitle") or cfg["podcast"]["show_subtitle"],
                 presented_by=cfg["podcast"].get("presented_by", "HARRO"),
                 shop_url=cfg.get("links", {}).get("harro_shop", ""),
                 instagram_url=cfg.get("links", {}).get("harro_instagram", ""),
