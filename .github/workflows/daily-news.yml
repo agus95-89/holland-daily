@@ -88,7 +88,13 @@ jobs:
             echo "No changes to commit"
           else
             git commit -m "chore: daily episode $(TZ=Europe/Amsterdam date +%Y-%m-%d)"
-            git push
+            # Pull-rebase first in case origin/main moved during the long run.
+            # Retry push a few times to absorb concurrent pushes.
+            for attempt in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "push attempt $attempt failed, retrying..."
+              sleep 5
+            done
           fi
 
       - name: Commit articles to harro-life-site (cross-repo)
@@ -111,5 +117,12 @@ jobs:
             echo "No new articles to commit"
           else
             git commit -m "chore: daily news articles $(TZ=Europe/Amsterdam date +%Y-%m-%d)"
-            git push
+            # Pull-rebase first in case origin/main moved during the long run
+            # (e.g. site copy edits landing while the pipeline was generating
+            # articles). Retry push a few times to absorb concurrent pushes.
+            for attempt in 1 2 3; do
+              git pull --rebase origin main && git push && break
+              echo "push attempt $attempt failed, retrying..."
+              sleep 5
+            done
           fi
