@@ -1,0 +1,76 @@
+name: HARRO LIFE Weekly Column
+
+on:
+  schedule:
+    # Every Thursday — fire across an 8-12 UTC window so we always land
+    # somewhere inside Europe/Amsterdam business hours regardless of GitHub
+    # Actions schedule delays. Idempotent: a week's column is generated only
+    # once (filename includes ISO week, second run sees existing file and exits).
+    - cron: '0 8 * * 4'
+    - cron: '0 9 * * 4'
+    - cron: '0 10 * * 4'
+    - cron: '0 11 * * 4'
+    - cron: '0 12 * * 4'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-column
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout (netherlands-news-bot)
+        uses: actions/checkout@v4
+
+      - name: Clone harro-life-site (cross-repo write target)
+        env:
+          HARRO_LIFE_SITE_PAT: ${{ secrets.HARRO_LIFE_SITE_PAT }}
+        run: |
+          if [ -z "$HARRO_LIFE_SITE_PAT" ]; then
+            echo "HARRO_LIFE_SITE_PAT not set, aborting"
+            exit 1
+          fi
+          git clone "https://x-access-token:${HARRO_LIFE_SITE_PAT}@github.com/agus95-89/harro-life-site.git" "$GITHUB_WORKSPACE/harro-life-site"
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run column generator
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
+          COLUMN_OUTPUT_DIR: ${{ github.workspace }}/harro-life-site/src/content/columns
+        run: python -m src.column_generator
+
+      - name: Commit + push to harro-life-site
+        env:
+          HARRO_LIFE_SITE_PAT: ${{ secrets.HARRO_LIFE_SITE_PAT }}
+        run: |
+          cd "$GITHUB_WORKSPACE/harro-life-site"
+          git config user.name "harro-life-bot"
+          git config user.email "harro-life-bot@users.noreply.github.com"
+          git add src/content/columns/
+          if git diff --cached --quiet; then
+            echo "No new column to commit (likely skipped because the week's column already exists)"
+            exit 0
+          fi
+          git commit -m "chore: weekly column $(TZ=Europe/Amsterdam date +%Y-W%V)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            echo "push attempt $attempt failed, retrying..."
+            sleep 5
+          done
