@@ -25,14 +25,14 @@ def post(
     episode_url: str,
     feed_url: str,
     today: date,
-    username: str = "Holland Daily",
+    username: str = "HARRO LIFE",
     icon_emoji: str = ":sunrise:",
 ) -> None:
     grouped: dict[str, list[Summary]] = {}
     for s in sorted(summaries, key=lambda x: -x.importance):
         grouped.setdefault(s.category, []).append(s)
 
-    header_text = f":flag-nl: Holland Daily — {today.strftime('%Y年%m月%d日')}"
+    header_text = f":flag-nl: HARRO LIFE — {today.strftime('%Y年%m月%d日')}"
     blocks: list[dict] = [
         {
             "type": "header",
@@ -71,7 +71,7 @@ def post(
     payload = {
         "username": username,
         "icon_emoji": icon_emoji,
-        "text": f"Holland Daily — {today.strftime('%Y-%m-%d')}",
+        "text": f"HARRO LIFE — {today.strftime('%Y-%m-%d')}",
         "blocks": blocks,
     }
 

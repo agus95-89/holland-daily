@@ -70,7 +70,7 @@ def main() -> int:
             return 0
 
     today = datetime.now(ZoneInfo(sched["timezone"])).date()
-    log.info("=== Holland Daily pipeline run for %s ===", today)
+    log.info("=== HARRO LIFE pipeline run for %s ===", today)
 
     log.info("[1/8] Fetching RSS feeds...")
     items = rss.fetch_all(
@@ -307,7 +307,7 @@ def main() -> int:
             "No notification channel configured. Set SLACK_WEBHOOK_URL or RESEND_API_KEY + EMAIL_TO."
         )
 
-    log.info("=== Holland Daily pipeline completed ===")
+    log.info("=== HARRO LIFE pipeline completed ===")
     return 0
 
 

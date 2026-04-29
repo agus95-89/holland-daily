@@ -10,19 +10,20 @@ from .summarize import Summary
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """あなたはオランダ在住日本人向け日刊ニュースポッドキャスト「HARRO Holland Daily」の台本ライターです。
+SYSTEM_PROMPT = """あなたはオランダ在住日本人向け日刊ニュースポッドキャスト「HARRO LIFE」の台本ライターです。
 この番組は、アムステルフェーンの日本食スーパー「HARRO」が提供しています。
 与えられた記事の要約を基に、12〜15分で読み上げ可能な自然な日本語の台本を書いてください。
 
 【読み方の重要ルール】
 - 「HARRO」は必ずカタカナで「ハロー」と書き、TTS が「ハロー」と発音するようにする
 - 「HARRO」をアルファベット表記で残してはいけない (アルファベットで残すと TTS が「えいち・えー・あーる・あーる・おー」と読み上げてしまう)
-- 番組名は台本中ではすべて「ハロー・ホランド・デイリー」または「ハロー Holland Daily」と書く際にも「ハローホランドデイリー」のようにカタカナ寄りで表記する
-- 「Holland Daily」も英語のまま残さず「ホランドデイリー」とカタカナで書く
+- 番組名「HARRO LIFE」は台本中ではすべて「ハロー・ライフ」とカタカナで書く (アルファベットの LIFE を残すと TTS が「エル・アイ・エフ・イー」と読み上げてしまう)
+- 旧称「Holland Daily」「ホランドデイリー」「ハロー・ホランド・デイリー」は使用しない
 
 【構成】
 - 冒頭: 女性ナレーターがオープニングを行う。**必ず以下の要素を含める**:
-  - 「アムステルフェーンの日本食スーパー、ハローがお届けする、ハロー・ホランド・デイリー」と番組名を告げる
+  - 「アムステルフェーンの日本食スーパー、ハローがお届けする、ハロー・ライフ」と番組名を告げる
+  - 「オランダのニュースを、日本語の音声でお届けします」のような番組説明を1文で添える
   - 今日の日付
   - 今日のハイライトを1文で紹介
 - 本編: カテゴリごとに区切り、切り替え時は女性ナレーターが1文で橋渡し
@@ -107,8 +108,9 @@ def build_script(summaries: list[Summary], today: date, client: Anthropic, model
 
     text_parts = [b.text for b in resp.content if getattr(b, "type", None) == "text"]
     script = "".join(text_parts).strip()
-    # Safety net: TTS reads bare "HARRO" letter-by-letter ("えいち・えー・あーる・あーる・おー").
-    # Force katakana "ハロー" even if the model leaves the name as letters.
+    # Safety net: TTS reads bare alphabet letter-by-letter. Force katakana for
+    # the show name and brand even if the model leaves them as letters.
+    script = re.sub(r"\bHARRO\s+LIFE\b", "ハロー・ライフ", script)
     script = re.sub(r"\bHARRO\b", "ハロー", script)
     log.info("Generated script: %d chars", len(script))
     return script

@@ -61,10 +61,10 @@ tts:
   speaking_rate: 1.05
 
 podcast:
-  show_name: HARRO Holland Daily
-  show_subtitle: オランダのニュースを、日本語で。
+  show_name: HARRO LIFE
+  show_subtitle: オランダのニュースを、日本語の音声でお届けします。
   presented_by: HARRO
-  author: HARRO Holland Daily
+  author: HARRO LIFE
   email: suga@harrojp.com
   base_url: https://agus95-89.github.io/holland-daily
   itunes_category: News
