@@ -34,9 +34,21 @@ FEED_PATH = DOCS_DIR / "feed.xml"
 DEFAULT_MARKDOWN_DIR = ROOT.parent / "harro-life-site" / "src" / "content" / "news"
 
 
-def should_run(target_hour: int, tz: str) -> bool:
+# GitHub Actions schedule cron can be delayed by hours on low-traffic repos
+# (https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule),
+# so the guard accepts a window rather than a single hour, and the idempotency
+# check below ensures we only produce one episode per day.
+RUN_WINDOW_HOURS = 6
+
+
+def should_run(target_hour: int, tz: str, window_hours: int = RUN_WINDOW_HOURS) -> bool:
     now = datetime.now(ZoneInfo(tz))
-    return now.hour == target_hour
+    return target_hour <= now.hour < target_hour + window_hours
+
+
+def already_ran_today(tz: str) -> bool:
+    today = datetime.now(ZoneInfo(tz)).date()
+    return (EPISODES_DIR / f"{today.isoformat()}.mp3").exists()
 
 
 def main() -> int:
@@ -47,9 +59,14 @@ def main() -> int:
         if not should_run(sched["target_hour_nl"], sched["timezone"]):
             now_local = datetime.now(ZoneInfo(sched["timezone"]))
             log.info(
-                "Not target hour (local=%s, target=%d). Skipping.",
-                now_local.strftime("%H:%M %Z"), sched["target_hour_nl"],
+                "Outside run window (local=%s, target=%d:00-%d:00). Skipping.",
+                now_local.strftime("%H:%M %Z"),
+                sched["target_hour_nl"],
+                sched["target_hour_nl"] + RUN_WINDOW_HOURS,
             )
+            return 0
+        if already_ran_today(sched["timezone"]):
+            log.info("Today's episode already produced. Skipping idempotently.")
             return 0
 
     today = datetime.now(ZoneInfo(sched["timezone"])).date()

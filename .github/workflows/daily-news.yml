@@ -2,10 +2,16 @@ name: Holland Daily Podcast
 
 on:
   schedule:
-    # GitHub Actions cron is UTC only (no DST).
-    # Fire at both 07:00 and 08:00 UTC; Python guards for local 09:00 Europe/Amsterdam.
+    # GitHub Actions cron is UTC only and on low-traffic repos can be delayed
+    # by several hours. Fire every hour from 07:00 to 11:00 UTC so we always
+    # land somewhere inside the Python-side 6-hour run window starting at
+    # 09:00 Europe/Amsterdam (covers both DST and CET). Idempotent: a day's
+    # episode is generated only once.
     - cron: '0 7 * * *'
     - cron: '0 8 * * *'
+    - cron: '0 9 * * *'
+    - cron: '0 10 * * *'
+    - cron: '0 11 * * *'
   workflow_dispatch:
     inputs:
       force_run:
