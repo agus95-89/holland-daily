@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <rss xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
   <channel>
-    <title>Holland Daily</title>
+    <title>HARRO Holland Daily</title>
     <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     <description>オランダのニュースを、日本語で。</description>
     <atom:link href="https://agus95-89.github.io/holland-daily/feed.xml" rel="self"/>
@@ -9,24 +9,33 @@
     <generator>python-feedgen</generator>
     <image>
       <url>https://agus95-89.github.io/holland-daily/artwork.png</url>
-      <title>Holland Daily</title>
+      <title>HARRO Holland Daily</title>
       <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     </image>
     <language>ja</language>
-    <lastBuildDate>Sun, 26 Apr 2026 15:36:55 +0000</lastBuildDate>
-    <itunes:author>Holland Daily</itunes:author>
+    <lastBuildDate>Wed, 29 Apr 2026 06:10:33 +0000</lastBuildDate>
+    <itunes:author>HARRO Holland Daily</itunes:author>
     <itunes:category text="News">
       <itunes:category text="Daily News"/>
     </itunes:category>
     <itunes:image href="https://agus95-89.github.io/holland-daily/artwork.png"/>
     <itunes:explicit>no</itunes:explicit>
     <itunes:owner>
-      <itunes:name>Holland Daily</itunes:name>
-      <itunes:email>hollandaily@example.com</itunes:email>
+      <itunes:name>HARRO Holland Daily</itunes:name>
+      <itunes:email>suga@harrojp.com</itunes:email>
     </itunes:owner>
     <itunes:summary>オランダのニュースを、日本語で。</itunes:summary>
     <item>
-      <title>Holland Daily — 2026-04-26</title>
+      <title>HARRO Holland Daily — 2026-04-29</title>
+      <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-29.mp3</link>
+      <description>2026-04-29 のオランダニュース要約 (日本語・約13分)</description>
+      <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-04-29.mp3</guid>
+      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-04-29.mp3" length="12086445" type="audio/mpeg"/>
+      <pubDate>Wed, 29 Apr 2026 07:00:00 +0000</pubDate>
+      <itunes:duration>13:00</itunes:duration>
+    </item>
+    <item>
+      <title>HARRO Holland Daily — 2026-04-26</title>
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-26.mp3</link>
       <description>2026-04-26 のオランダニュース要約 (日本語・約13分)</description>
       <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-04-26.mp3</guid>
@@ -35,7 +44,7 @@
       <itunes:duration>13:00</itunes:duration>
     </item>
     <item>
-      <title>Holland Daily — 2026-04-24</title>
+      <title>HARRO Holland Daily — 2026-04-24</title>
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3</link>
       <description>2026-04-24 のオランダニュース要約 (日本語・約13分)</description>
       <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-04-24.mp3</guid>
