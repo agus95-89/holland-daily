@@ -73,7 +73,11 @@ def main() -> int:
     log.info("=== Holland Daily pipeline run for %s ===", today)
 
     log.info("[1/8] Fetching RSS feeds...")
-    items = rss.fetch_all(cfg["sources"], window_hours=sched.get("window_hours", 26))
+    items = rss.fetch_all(
+        cfg["sources"],
+        window_hours=sched.get("window_hours", 26),
+        per_source_cap=cfg.get("selection", {}).get("per_source_cap", 8),
+    )
     log.info("  %d unique items from last %dh", len(items), sched.get("window_hours", 26))
     if not items:
         log.warning("No items fetched, exiting cleanly")

@@ -18,7 +18,15 @@ class FeedItem:
     source: str
 
 
-def fetch_all(sources: list[dict], window_hours: int = 26) -> list[FeedItem]:
+def fetch_all(
+    sources: list[dict],
+    window_hours: int = 26,
+    per_source_cap: int = 8,
+) -> list[FeedItem]:
+    """Fetch RSS feeds from each source, keeping at most `per_source_cap`
+    most-recent in-window items per source so a single high-volume feed
+    (e.g. NOS) cannot starve the candidate pool of other sources.
+    """
     cutoff = datetime.now(timezone.utc) - timedelta(hours=window_hours)
     items: list[FeedItem] = []
 
@@ -31,19 +39,26 @@ def fetch_all(sources: list[dict], window_hours: int = 26) -> list[FeedItem]:
             log.warning("Failed to parse %s: %s", src["name"], e)
             continue
 
+        # Sort entries newest-first then take up to per_source_cap.
+        in_window: list[tuple[datetime, FeedItem]] = []
         for entry in parsed.entries:
             pub = _parse_published(entry)
             if pub is None or pub < cutoff:
                 continue
-            items.append(
+            in_window.append((
+                pub,
                 FeedItem(
                     title=(entry.get("title") or "").strip(),
                     link=(entry.get("link") or "").strip(),
                     summary=_strip_html(entry.get("summary") or ""),
                     published=pub,
                     source=src["name"],
-                )
-            )
+                ),
+            ))
+        in_window.sort(key=lambda x: x[0], reverse=True)
+        kept = [fi for _, fi in in_window[:per_source_cap]]
+        log.info("  %s: %d in-window, kept %d", src["name"], len(in_window), len(kept))
+        items.extend(kept)
 
     return _dedupe(items)
 
