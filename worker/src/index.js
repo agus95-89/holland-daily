@@ -8,14 +8,16 @@
 //                            because of this); Cloudflare Workers cron is ±1 minute reliable.
 //
 // Required environment variables (set in Cloudflare dashboard or wrangler secrets):
-//   RESEND_API_KEY       - Resend API key (re_...)
-//   RESEND_AUDIENCE_ID   - Resend Audience ID (uuid)
-//   EMAIL_FROM           - sender address (e.g. onboarding@resend.dev)
-//   ALLOWED_ORIGIN       - comma-separated allowed origins (e.g. https://agus95-89.github.io)
-//   GH_DISPATCH_TOKEN    - GitHub PAT with `workflow` scope; used to dispatch
-//                          daily-news.yml + weekly-column.yml on holland-daily repo
-//   GH_DISPATCH_OWNER    - GitHub owner (default "agus95-89")
-//   GH_DISPATCH_REPO     - GitHub repo (default "holland-daily")
+//   RESEND_API_KEY         - Resend API key (re_...)
+//   RESEND_AUDIENCE_ID     - HARRO LIFE news Audience (uuid) — every subscriber lands here
+//   MARKETING_AUDIENCE_ID  - HARRO Marketing Audience (uuid) — opt-in only; if unset, the
+//                            checkbox value is silently ignored (graceful degradation)
+//   EMAIL_FROM             - sender address (e.g. onboarding@resend.dev)
+//   ALLOWED_ORIGIN         - comma-separated allowed origins (e.g. https://agus95-89.github.io)
+//   GH_DISPATCH_TOKEN      - GitHub PAT with `workflow` scope; used to dispatch
+//                            daily-news.yml + weekly-column.yml on holland-daily repo
+//   GH_DISPATCH_OWNER      - GitHub owner (default "agus95-89")
+//   GH_DISPATCH_REPO       - GitHub repo (default "holland-daily")
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -87,30 +89,38 @@ async function handleSubscribe(request, env) {
     return jsonResp({ error: "Invalid email" }, 400, corsHeaders);
   }
 
-  try {
-    const addResp = await fetch(
-      `https://api.resend.com/audiences/${env.RESEND_AUDIENCE_ID}/contacts`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${env.RESEND_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ email, unsubscribed: false }),
-      },
-    );
+  // Marketing opt-in is a separate Audience the user can opt INTO at signup
+  // for HARRO product / promo updates (separate from daily news). Defaults to
+  // false on the form per GDPR (no pre-ticked consent).
+  const marketingOptIn = body.marketing_optin === true;
 
-    const addBody = await addResp.text();
-    if (!addResp.ok) {
-      const alreadyExists =
-        addResp.status === 409 ||
-        /already.*exist/i.test(addBody) ||
-        /duplicate/i.test(addBody);
-      if (alreadyExists) {
-        return jsonResp({ message: "Already subscribed" }, 200, corsHeaders);
-      }
-      console.error("Resend add contact failed", addResp.status, addBody);
+  try {
+    const newsResult = await addToAudience(env, env.RESEND_AUDIENCE_ID, email);
+    if (newsResult === "error") {
       return jsonResp({ error: "Subscription failed" }, 500, corsHeaders);
+    }
+
+    // If they opted into marketing, also add to the marketing Audience.
+    // This is best-effort: a failure here does not break the news
+    // subscription (which already succeeded above).
+    if (marketingOptIn && env.MARKETING_AUDIENCE_ID) {
+      const mktResult = await addToAudience(env, env.MARKETING_AUDIENCE_ID, email);
+      if (mktResult === "error") {
+        console.warn(
+          "Marketing add failed for",
+          email,
+          "— news subscription succeeded, marketing did not",
+        );
+      }
+    } else if (marketingOptIn && !env.MARKETING_AUDIENCE_ID) {
+      console.warn(
+        "MARKETING_AUDIENCE_ID not set — opt-in flag ignored for",
+        email,
+      );
+    }
+
+    if (newsResult === "exists") {
+      return jsonResp({ message: "Already subscribed" }, 200, corsHeaders);
     }
 
     await sendWelcome(env, email).catch((err) =>
@@ -122,6 +132,39 @@ async function handleSubscribe(request, env) {
     console.error("Unexpected error:", err);
     return jsonResp({ error: "Server error" }, 500, corsHeaders);
   }
+}
+
+/**
+ * Add an email to a Resend Audience. Returns:
+ *   "added"  — newly inserted
+ *   "exists" — already present (treated as success at the call site)
+ *   "error"  — unexpected failure
+ */
+async function addToAudience(env, audienceId, email) {
+  const resp = await fetch(
+    `https://api.resend.com/audiences/${audienceId}/contacts`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${env.RESEND_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, unsubscribed: false }),
+    },
+  );
+  if (resp.ok) return "added";
+  const text = await resp.text();
+  const alreadyExists =
+    resp.status === 409 ||
+    /already.*exist/i.test(text) ||
+    /duplicate/i.test(text);
+  if (alreadyExists) return "exists";
+  console.error(
+    `Resend add contact failed (audience=${audienceId})`,
+    resp.status,
+    text,
+  );
+  return "error";
 }
 
 async function handleUnsubscribe(request, env) {
