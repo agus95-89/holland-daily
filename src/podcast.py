@@ -68,6 +68,9 @@ def update_feed(
         fe.enclosure(f"{base_url}/episodes/{ep.name}", str(size), "audio/mpeg")
         fe.pubDate(pub_date)
         fe.podcast.itunes_duration("13:00")
+        # Group all episodes under Season 1 — daily news shows conventionally
+        # use a single ongoing season. Without this Apple shows "不明なシーズン".
+        fe.podcast.itunes_season(1)
         included += 1
 
     feed_path.parent.mkdir(parents=True, exist_ok=True)
