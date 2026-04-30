@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import urllib.parse
 from datetime import date
 
 import requests
@@ -51,16 +52,38 @@ def send_via_resend(
     instagram_url: str = "",
     logo_url: str = "",
     site_url: str = "",
+    unsubscribe_base_url: str = "",
 ) -> None:
-    subject = f"{show_name} — {today.strftime('%Y年%m月%d日')}"
-    html = _build_html(
-        summaries, episode_url, feed_url, today,
-        show_name, subtitle, presented_by, shop_url, instagram_url, logo_url, site_url,
-    )
+    n = len(summaries)
+    date_short = f"{today.month}/{today.day}"
+    subject = f"{show_name}｜オランダの今日のニュース {n}本（{date_short}）"
 
     sent = 0
     failed = 0
     for recipient in to_emails:
+        unsub_url = (
+            f"{unsubscribe_base_url.rstrip('/')}/unsubscribe?email={urllib.parse.quote(recipient)}"
+            if unsubscribe_base_url
+            else ""
+        )
+        html = _build_html(
+            summaries, episode_url, feed_url, today,
+            show_name, subtitle, presented_by, shop_url, instagram_url, logo_url, site_url,
+            unsub_url,
+        )
+        payload: dict = {
+            "from": from_email,
+            "to": [recipient],
+            "subject": subject,
+            "html": html,
+        }
+        if unsub_url:
+            # RFC 2369 + RFC 8058 — Gmail/Apple Mail surface a one-click
+            # Unsubscribe button at the top of the message when these are set.
+            payload["headers"] = {
+                "List-Unsubscribe": f"<{unsub_url}>",
+                "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+            }
         try:
             resp = requests.post(
                 "https://api.resend.com/emails",
@@ -68,12 +91,7 @@ def send_via_resend(
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
                 },
-                json={
-                    "from": from_email,
-                    "to": [recipient],
-                    "subject": subject,
-                    "html": html,
-                },
+                json=payload,
                 timeout=30,
             )
             resp.raise_for_status()
@@ -97,6 +115,7 @@ def _build_html(
     instagram_url: str,
     logo_url: str,
     site_url: str,
+    unsubscribe_url: str,
 ) -> str:
     grouped: dict[str, list[Summary]] = {}
     for s in sorted(summaries, key=lambda x: -x.importance):
@@ -134,30 +153,47 @@ def _build_html(
 
     cta_buttons = _build_cta_buttons(episode_url, site_url)
     site_cta_block = _build_site_cta_block(site_url)
+    header_block = _build_header_block(logo_url, show_name, presented_by)
+    footer_block = _build_full_footer(shop_url, instagram_url, presented_by, feed_url, unsubscribe_url)
 
     return f"""<!doctype html>
 <html lang="ja">
 <body style="margin:0;padding:0;background:#faf7f2;font-family:-apple-system,'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf7f2;">
 <tr><td align="center">
-<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:40px 20px;">
-<tr><td style="padding:40px 32px;">
-{_build_logo_block(logo_url, presented_by)}
-<div style="font-size:11px;color:#999;letter-spacing:0.15em;text-transform:uppercase;">{date_str}</div>
-<h1 style="font-size:40px;font-weight:200;letter-spacing:-0.04em;margin:4px 0 8px;color:#1a1a1a;">{_esc(show_name)}<span style="color:#9E3E24;">.</span></h1>
-<div style="color:#666;font-size:15px;margin-bottom:28px;">{_esc(subtitle)}</div>
+<table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;background:#ffffff;margin:40px 20px;border-radius:8px;overflow:hidden;">
+{header_block}
+<tr><td style="padding:32px 32px 8px;">
+<div style="font-size:11px;color:#999;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;">{date_str}</div>
+<div style="color:#666;font-size:15px;margin-top:8px;margin-bottom:24px;">{_esc(subtitle)}</div>
 {cta_buttons}
 <table width="100%" cellpadding="0" cellspacing="0">{sections_html}</table>
 {site_cta_block}
-<div style="margin-top:32px;padding-top:24px;border-top:1px solid #eee;color:#999;font-size:12px;line-height:1.8;">
-<a href="{_esc(feed_url)}" style="color:#9E3E24;text-decoration:none;">Podcast RSSで購読</a>
-</div>
-{_build_harro_footer(shop_url, instagram_url, presented_by)}
 </td></tr>
+{footer_block}
 </table>
 </td></tr>
 </table>
 </body></html>"""
+
+
+def _build_header_block(logo_url: str, show_name: str, presented_by: str) -> str:
+    """Navy band at top of email with HARRO LIFE logo (on-dark variant)."""
+    if logo_url:
+        logo_html = (
+            f'<img src="{_esc(logo_url)}" alt="{_esc(show_name)}" '
+            'style="height:36px;width:auto;display:block;border:0;" />'
+        )
+    else:
+        logo_html = (
+            f'<div style="font-size:22px;font-weight:700;color:#ffffff;'
+            f'letter-spacing:-0.02em;">{_esc(show_name)}</div>'
+        )
+    return (
+        '<tr><td style="background:#09202e;padding:22px 32px;">'
+        f'{logo_html}'
+        '</td></tr>'
+    )
 
 
 def _build_cta_buttons(episode_url: str, site_url: str) -> str:
@@ -189,7 +225,7 @@ def _build_site_cta_block(site_url: str) -> str:
         'border-radius:12px;text-align:center;">'
         '<div style="font-size:15px;color:#1a1a1a;margin-bottom:14px;'
         'line-height:1.6;">'
-        'すべての記事は HARRO LIFE のサイトでも読めます。'
+        'すべての記事は HARRO LIFE のサイトでも読めます'
         '</div>'
         f'<a href="{_esc(site_url)}" '
         'style="display:inline-block;background:#9E3E24;color:#ffffff;'
@@ -200,46 +236,58 @@ def _build_site_cta_block(site_url: str) -> str:
     )
 
 
-def _build_logo_block(logo_url: str, presented_by: str) -> str:
-    if logo_url:
-        return (
-            f'<div style="margin-bottom:32px;">'
-            f'<img src="{_esc(logo_url)}" alt="{_esc(presented_by)}" '
-            f'style="height:44px;display:block;" />'
-            f'</div>'
-        )
-    return (
-        f'<div style="font-size:11px;color:#ff6b35;letter-spacing:0.2em;'
-        f'text-transform:uppercase;font-weight:700;margin-bottom:24px;">'
-        f'Presented by {_esc(presented_by)}</div>'
-    )
-
-
-def _build_harro_footer(shop_url: str, instagram_url: str, presented_by: str) -> str:
-    if not shop_url and not instagram_url:
-        return ""
-
-    links = []
+def _build_full_footer(
+    shop_url: str,
+    instagram_url: str,
+    presented_by: str,
+    feed_url: str,
+    unsubscribe_url: str,
+) -> str:
+    """Footer cell — HARRO links, podcast feed, unsubscribe link, copyright."""
+    harro_links: list[str] = []
     if shop_url:
-        links.append(
+        harro_links.append(
             f'<a href="{_esc(shop_url)}" style="color:#1a1a1a;text-decoration:none;'
             f'border-bottom:1px solid #ddd;padding-bottom:1px;">HARRO Online Shop</a>'
         )
     if instagram_url:
-        links.append(
+        harro_links.append(
             f'<a href="{_esc(instagram_url)}" style="color:#1a1a1a;text-decoration:none;'
             f'border-bottom:1px solid #ddd;padding-bottom:1px;">Instagram</a>'
         )
-    separator = '<span style="color:#ccc;margin:0 12px;">·</span>'
+    sep = '<span style="color:#ccc;margin:0 12px;">·</span>'
+    harro_block = (
+        '<div style="text-align:center;font-size:13px;color:#555;margin-bottom:18px;">'
+        f'{sep.join(harro_links)}'
+        '</div>'
+    ) if harro_links else ""
+
+    feed_block = (
+        f'<div style="text-align:center;font-size:12px;color:#888;margin-bottom:18px;">'
+        f'<a href="{_esc(feed_url)}" style="color:#9E3E24;text-decoration:none;">'
+        'Podcast を RSS で購読する'
+        '</a></div>'
+    ) if feed_url else ""
+
+    unsub_block = ""
+    if unsubscribe_url:
+        unsub_block = (
+            '<div style="text-align:center;font-size:11px;color:#999;margin-bottom:8px;">'
+            f'このメールが不要な場合は<a href="{_esc(unsubscribe_url)}" '
+            'style="color:#9E3E24;text-decoration:underline;">配信停止</a>'
+            'してください。'
+            '</div>'
+        )
 
     return (
-        '<div style="margin-top:40px;padding:28px 0;border-top:1px solid #eee;'
-        'text-align:center;font-size:13px;color:#555;">'
-        f'{separator.join(links)}'
-        '<div style="margin-top:14px;font-size:11px;color:#bbb;letter-spacing:0.1em;">'
+        '<tr><td style="padding:24px 32px 32px;border-top:1px solid #eee;background:#faf7f2;">'
+        f'{harro_block}'
+        f'{feed_block}'
+        f'{unsub_block}'
+        '<div style="text-align:center;font-size:11px;color:#bbb;letter-spacing:0.1em;margin-top:6px;">'
         f'Presented by {_esc(presented_by)}'
         '</div>'
-        '</div>'
+        '</td></tr>'
     )
 
 

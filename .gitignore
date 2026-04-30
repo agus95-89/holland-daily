@@ -9,3 +9,4 @@ gcp-sa.json
 .vscode/
 .idea/
 HANDOVER.md
+scripts/migrate_data/

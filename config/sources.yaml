@@ -78,7 +78,9 @@ mail:
 links:
   harro_shop: https://shop.harrojp.com/ja-nl
   harro_instagram: https://www.instagram.com/harro_app/
-  harro_logo: https://agus95-89.github.io/holland-daily/harro-logo.png
+  # HARRO LIFE wordmark (cream-on-navy, 2048x768, ~18 KB) — designed for use
+  # against the navy email header band rendered in mailer._build_header_block.
+  harro_logo: https://harro-life-site.pages.dev/images/brand/harro-life-on-dark.png
 
 slack:
   username: HARRO LIFE

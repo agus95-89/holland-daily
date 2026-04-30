@@ -4,7 +4,10 @@ compatibility_date = "2025-01-01"
 
 # Non-secret config (set via wrangler.toml)
 [vars]
-ALLOWED_ORIGIN = "https://agus95-89.github.io"
+# Comma-separated list of origins allowed to POST /. Includes the legacy
+# GitHub Pages subscribe page and the current harro-life-site.pages.dev,
+# plus the future news.harrojp.com custom domain.
+ALLOWED_ORIGIN = "https://agus95-89.github.io,https://harro-life-site.pages.dev,https://news.harrojp.com"
 EMAIL_FROM = "onboarding@resend.dev"
 GH_DISPATCH_OWNER = "agus95-89"
 GH_DISPATCH_REPO = "holland-daily"

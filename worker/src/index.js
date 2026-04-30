@@ -1,10 +1,11 @@
-// Cloudflare Worker — two responsibilities:
-//   1. POST /  — Holland Daily subscription endpoint (Resend Audience).
-//   2. scheduled() — reliable cron trigger that POSTs to GitHub API to
-//      workflow_dispatch the daily news + weekly column workflows.
-//      GitHub Actions' built-in `schedule:` is best-effort and silently
-//      skipped on low-traffic repos (we lost a day of content on 4/30
-//      because of this); Cloudflare Workers cron is ±1 minute reliable.
+// Cloudflare Worker — three responsibilities:
+//   1. POST /             — HARRO LIFE subscription endpoint (Resend Audience).
+//   2. GET/POST /unsubscribe — RFC 8058 one-click unsubscribe + confirmation page.
+//   3. scheduled()        — reliable cron trigger that POSTs to GitHub API to
+//                            workflow_dispatch the daily news + weekly column workflows.
+//                            GitHub Actions' built-in `schedule:` is best-effort and silently
+//                            skipped on low-traffic repos (we lost a day of content on 4/30
+//                            because of this); Cloudflare Workers cron is ±1 minute reliable.
 //
 // Required environment variables (set in Cloudflare dashboard or wrangler secrets):
 //   RESEND_API_KEY       - Resend API key (re_...)
@@ -20,69 +21,13 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export default {
   async fetch(request, env) {
-    const origin = request.headers.get("Origin") || "";
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": isAllowedOrigin(origin, env) ? origin : "null",
-      "Access-Control-Allow-Methods": "POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type",
-      "Vary": "Origin",
-    };
+    const url = new URL(request.url);
 
-    if (request.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: corsHeaders });
+    if (url.pathname === "/unsubscribe") {
+      return handleUnsubscribe(request, env);
     }
 
-    if (request.method !== "POST") {
-      return jsonResp({ error: "Method not allowed" }, 405, corsHeaders);
-    }
-
-    let body;
-    try {
-      body = await request.json();
-    } catch {
-      return jsonResp({ error: "Invalid JSON" }, 400, corsHeaders);
-    }
-
-    const email = (body.email || "").trim().toLowerCase();
-    if (!email || !EMAIL_RE.test(email) || email.length > 320) {
-      return jsonResp({ error: "Invalid email" }, 400, corsHeaders);
-    }
-
-    try {
-      const addResp = await fetch(
-        `https://api.resend.com/audiences/${env.RESEND_AUDIENCE_ID}/contacts`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${env.RESEND_API_KEY}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ email, unsubscribed: false }),
-        },
-      );
-
-      const addBody = await addResp.text();
-      if (!addResp.ok) {
-        const alreadyExists =
-          addResp.status === 409 ||
-          /already.*exist/i.test(addBody) ||
-          /duplicate/i.test(addBody);
-        if (alreadyExists) {
-          return jsonResp({ message: "Already subscribed" }, 200, corsHeaders);
-        }
-        console.error("Resend add contact failed", addResp.status, addBody);
-        return jsonResp({ error: "Subscription failed" }, 500, corsHeaders);
-      }
-
-      await sendWelcome(env, email).catch((err) =>
-        console.error("Welcome email failed (non-fatal):", err),
-      );
-
-      return jsonResp({ message: "Subscribed" }, 200, corsHeaders);
-    } catch (err) {
-      console.error("Unexpected error:", err);
-      return jsonResp({ error: "Server error" }, 500, corsHeaders);
-    }
+    return handleSubscribe(request, env);
   },
 
   /**
@@ -102,8 +47,6 @@ export default {
     const owner = env.GH_DISPATCH_OWNER || "agus95-89";
     const repo = env.GH_DISPATCH_REPO || "holland-daily";
 
-    // Map cron expression to workflow file. Both crons may fire on Thursday;
-    // each dispatches its own workflow.
     let workflow;
     if (cron === "0 8 * * 4") {
       workflow = "weekly-column.yml";
@@ -114,6 +57,120 @@ export default {
     ctx.waitUntil(dispatchWorkflow(env, owner, repo, workflow));
   },
 };
+
+async function handleSubscribe(request, env) {
+  const origin = request.headers.get("Origin") || "";
+  const corsHeaders = {
+    "Access-Control-Allow-Origin": isAllowedOrigin(origin, env) ? origin : "null",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type",
+    "Vary": "Origin",
+  };
+
+  if (request.method === "OPTIONS") {
+    return new Response(null, { status: 204, headers: corsHeaders });
+  }
+
+  if (request.method !== "POST") {
+    return jsonResp({ error: "Method not allowed" }, 405, corsHeaders);
+  }
+
+  let body;
+  try {
+    body = await request.json();
+  } catch {
+    return jsonResp({ error: "Invalid JSON" }, 400, corsHeaders);
+  }
+
+  const email = (body.email || "").trim().toLowerCase();
+  if (!email || !EMAIL_RE.test(email) || email.length > 320) {
+    return jsonResp({ error: "Invalid email" }, 400, corsHeaders);
+  }
+
+  try {
+    const addResp = await fetch(
+      `https://api.resend.com/audiences/${env.RESEND_AUDIENCE_ID}/contacts`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${env.RESEND_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ email, unsubscribed: false }),
+      },
+    );
+
+    const addBody = await addResp.text();
+    if (!addResp.ok) {
+      const alreadyExists =
+        addResp.status === 409 ||
+        /already.*exist/i.test(addBody) ||
+        /duplicate/i.test(addBody);
+      if (alreadyExists) {
+        return jsonResp({ message: "Already subscribed" }, 200, corsHeaders);
+      }
+      console.error("Resend add contact failed", addResp.status, addBody);
+      return jsonResp({ error: "Subscription failed" }, 500, corsHeaders);
+    }
+
+    await sendWelcome(env, email).catch((err) =>
+      console.error("Welcome email failed (non-fatal):", err),
+    );
+
+    return jsonResp({ message: "Subscribed" }, 200, corsHeaders);
+  } catch (err) {
+    console.error("Unexpected error:", err);
+    return jsonResp({ error: "Server error" }, 500, corsHeaders);
+  }
+}
+
+async function handleUnsubscribe(request, env) {
+  const url = new URL(request.url);
+  const email = (url.searchParams.get("email") || "").trim().toLowerCase();
+
+  if (!email || !EMAIL_RE.test(email)) {
+    return htmlResp(unsubErrorHtml("メールアドレスが指定されていません。"), 400);
+  }
+
+  if (request.method === "GET") {
+    // GET = render confirmation page. We deliberately do NOT unsubscribe on GET so
+    // that email scanners (Gmail link prefetch etc.) cannot accidentally trigger it.
+    return htmlResp(unsubConfirmHtml(email), 200);
+  }
+
+  if (request.method === "POST") {
+    const ok = await markResendContactUnsubscribed(env, email);
+    if (!ok) {
+      return htmlResp(
+        unsubErrorHtml("配信停止の処理に失敗しました。お手数ですが suga@harrojp.com までご連絡ください。"),
+        500,
+      );
+    }
+    return htmlResp(unsubSuccessHtml(email), 200);
+  }
+
+  return new Response("Method not allowed", { status: 405 });
+}
+
+async function markResendContactUnsubscribed(env, email) {
+  // Resend's API: PATCH /audiences/{audience_id}/contacts/{email_or_id}
+  // The path parameter accepts either the contact ID or the email address.
+  const audience = env.RESEND_AUDIENCE_ID;
+  const url = `https://api.resend.com/audiences/${audience}/contacts/${encodeURIComponent(email)}`;
+  const resp = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ unsubscribed: true }),
+  });
+  if (resp.ok) return true;
+  const text = await resp.text();
+  console.error("Resend unsubscribe failed", resp.status, text);
+  // 404 means the email was never subscribed — treat as success from the user's POV.
+  return resp.status === 404;
+}
 
 async function dispatchWorkflow(env, owner, repo, workflow) {
   if (!env.GH_DISPATCH_TOKEN) {
@@ -158,6 +215,13 @@ function jsonResp(data, status, headers) {
   });
 }
 
+function htmlResp(html, status) {
+  return new Response(html, {
+    status,
+    headers: { "Content-Type": "text/html; charset=utf-8" },
+  });
+}
+
 async function sendWelcome(env, to) {
   const from = env.EMAIL_FROM || "onboarding@resend.dev";
   const html = welcomeHtml();
@@ -170,7 +234,7 @@ async function sendWelcome(env, to) {
     body: JSON.stringify({
       from,
       to: [to],
-      subject: "Holland Daily へようこそ",
+      subject: "HARRO LIFE へようこそ",
       html,
     }),
   });
@@ -180,19 +244,23 @@ async function sendWelcome(env, to) {
   }
 }
 
+const HARRO_LIFE_LOGO_URL =
+  "https://harro-life-site.pages.dev/images/brand/harro-life-on-dark.png";
+
 function welcomeHtml() {
   return `<!doctype html>
 <html lang="ja"><body style="margin:0;padding:0;background:#faf7f2;font-family:-apple-system,'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif;">
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#faf7f2;">
 <tr><td align="center">
-<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;margin:40px 20px;">
-<tr><td style="padding:44px 32px;">
-<div style="font-size:11px;color:#ff6b35;letter-spacing:0.2em;text-transform:uppercase;font-weight:700;margin-bottom:24px;">Presented by HARRO</div>
-<h1 style="font-size:36px;font-weight:200;letter-spacing:-0.04em;margin:0 0 6px;color:#1a1a1a;">Holland Daily<span style="color:#ff6b35;">.</span></h1>
+<table width="560" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;margin:40px 20px;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#09202e;padding:22px 32px;">
+<img src="${HARRO_LIFE_LOGO_URL}" alt="HARRO LIFE" style="height:36px;width:auto;display:block;border:0;" />
+</td></tr>
+<tr><td style="padding:40px 32px;">
 <div style="color:#666;font-size:15px;margin-bottom:32px;">オランダのニュースを、日本語で。</div>
 
 <p style="font-size:15px;line-height:1.8;color:#333;">ご購読ありがとうございます。</p>
-<p style="font-size:15px;line-height:1.8;color:#333;">明日の朝9時（オランダ時間）から、毎日 Holland Daily をメールでお届けします。</p>
+<p style="font-size:15px;line-height:1.8;color:#333;">明日の朝9時（オランダ時間）から、毎日 HARRO LIFE をメールでお届けします。</p>
 <p style="font-size:15px;line-height:1.8;color:#333;">オランダの主要メディアから選んだ10本のニュースを日本語で要約、ポッドキャスト版も併せてお楽しみください。</p>
 
 <div style="margin-top:40px;padding:28px 0;border-top:1px solid #eee;text-align:center;font-size:13px;color:#555;">
@@ -205,4 +273,94 @@ function welcomeHtml() {
 </td></tr></table>
 </td></tr></table>
 </body></html>`;
+}
+
+function unsubBaseHtml(title, bodyHtml) {
+  return `<!doctype html>
+<html lang="ja"><head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="robots" content="noindex" />
+<title>${escapeHtml(title)} — HARRO LIFE</title>
+<style>
+  :root { color-scheme: light; }
+  * { box-sizing: border-box; }
+  body { margin:0; padding:0; background:#faf7f2; font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans','Yu Gothic',sans-serif; color:#1a1a1a; }
+  .wrap { max-width:520px; margin:0 auto; padding:40px 24px; }
+  .card { background:#ffffff; border-radius:12px; padding:36px 28px; box-shadow:0 1px 2px rgba(0,0,0,0.04); }
+  .header-band { background:#09202e; padding:22px 28px; border-radius:12px 12px 0 0; margin:-36px -28px 28px; }
+  .header-band img { height:32px; width:auto; display:block; }
+  h1 { font-size:22px; margin:0 0 12px; letter-spacing:-0.01em; }
+  p { font-size:15px; line-height:1.75; color:#333; margin:0 0 14px; }
+  .email { font-weight:700; word-break:break-all; }
+  form { margin-top:24px; }
+  button, .btn-link { display:inline-block; background:#9E3E24; color:#ffffff; border:0; padding:14px 28px; border-radius:999px; font-size:15px; font-weight:700; cursor:pointer; text-decoration:none; }
+  button:hover, .btn-link:hover { background:#7c2d1b; }
+  .secondary { display:inline-block; margin-left:8px; color:#666; font-size:14px; text-decoration:underline; }
+  .muted { color:#888; font-size:13px; margin-top:18px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="header-band">
+      <img src="${HARRO_LIFE_LOGO_URL}" alt="HARRO LIFE" />
+    </div>
+    ${bodyHtml}
+  </div>
+</div>
+</body></html>`;
+}
+
+function unsubConfirmHtml(email) {
+  return unsubBaseHtml(
+    "配信停止の確認",
+    `
+    <h1>HARRO LIFE の配信を停止しますか？</h1>
+    <p>このメールアドレスへの配信を停止します:</p>
+    <p class="email">${escapeHtml(email)}</p>
+    <form method="POST" action="/unsubscribe?email=${encodeURIComponent(email)}">
+      <button type="submit">配信を停止する</button>
+      <a href="https://harro-life-site.pages.dev/" class="secondary">やめる</a>
+    </form>
+    <p class="muted">いつでも再購読できます。</p>
+    `,
+  );
+}
+
+function unsubSuccessHtml(email) {
+  return unsubBaseHtml(
+    "配信停止しました",
+    `
+    <h1>配信を停止しました</h1>
+    <p>このメールアドレスへの HARRO LIFE 配信は停止されました:</p>
+    <p class="email">${escapeHtml(email)}</p>
+    <p>ご購読ありがとうございました。気が向いたら、いつでもまた戻ってきてください。</p>
+    <p style="margin-top:24px;">
+      <a href="https://harro-life-site.pages.dev/" class="btn-link">HARRO LIFE に戻る</a>
+    </p>
+    `,
+  );
+}
+
+function unsubErrorHtml(message) {
+  return unsubBaseHtml(
+    "エラー",
+    `
+    <h1>処理できませんでした</h1>
+    <p>${escapeHtml(message)}</p>
+    <p style="margin-top:24px;">
+      <a href="https://harro-life-site.pages.dev/" class="btn-link">HARRO LIFE に戻る</a>
+    </p>
+    `,
+  );
+}
+
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }
