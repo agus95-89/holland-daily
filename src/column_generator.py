@@ -1,17 +1,22 @@
-"""Weekly column auto-generator for harro-life-site.
+"""Weekly column auto-generator for HARRO LIFE.
 
-Approach A: fully automated weekly column.
+Pre-publish review flow (since 2026-04-30):
   - Category rotation by ISO week mod 4: living / food / health / procedures
   - Claude picks a topic + writes a 1500-2000 char Japanese column
   - Optional Unsplash cover via existing images.py
   - 2-3 inline body images, one per section, fetched from Unsplash
-  - Writes to harro-life-site/src/content/columns/auto-{date}-{category}.md
+  - **Saves to netherlands-news-bot/pending-columns/auto-{week}-{category}.md**
+  - **Sends a review email (Resend) with HTML preview + .md attachment** to the
+    editorial team. After human review, a follow-up Claude session moves the
+    file from pending-columns/ to harro-life-site/src/content/columns/ to
+    publish.
 
-Run as a one-shot script (called from a GitHub Actions weekly cron):
+Run as a one-shot script (called from .github/workflows/weekly-column.yml):
     python -m src.column_generator
 """
 from __future__ import annotations
 
+import base64
 import logging
 import os
 import re
@@ -21,6 +26,8 @@ from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
+import markdown as md_lib
+import requests
 import yaml
 from anthropic import Anthropic
 from dotenv import load_dotenv
@@ -33,9 +40,16 @@ log = logging.getLogger("column-generator")
 ROOT = Path(__file__).resolve().parents[1]
 load_dotenv(ROOT / ".env", override=True)
 
-DEFAULT_OUTPUT_DIR = ROOT.parent / "harro-life-site" / "src" / "content" / "columns"
+DEFAULT_PENDING_DIR = ROOT / "pending-columns"
 
 CATEGORY_ROTATION = ["living", "food", "health", "procedures"]
+
+CATEGORY_LABEL_JA = {
+    "living": "暮らし",
+    "food": "食",
+    "health": "健康",
+    "procedures": "手続き",
+}
 
 CATEGORY_HINTS = {
     "living": "暮らし全般 / 住まい / 季節行事 / 自治体サービス / 地域コミュニティ / 生活ライフハック",
@@ -273,6 +287,194 @@ def render_markdown(draft: ColumnDraft, category: str, pub_date: str, image_url:
     return f"---\n{yaml_text}---\n\n{draft.body_md.strip()}\n"
 
 
+# ──────────────────────────────────────────────────────────────────────
+# Review email — sends column draft to the editorial team for sign-off.
+# ──────────────────────────────────────────────────────────────────────
+
+
+def _esc(text: str) -> str:
+    return (
+        text.replace("&", "&amp;")
+        .replace("<", "&lt;")
+        .replace(">", "&gt;")
+        .replace('"', "&quot;")
+    )
+
+
+def render_body_to_html(body_md: str) -> str:
+    """Convert the column body Markdown (with embedded HTML tags) to HTML for email preview."""
+    html = md_lib.markdown(body_md, extensions=["extra", "sane_lists"])
+    return html
+
+
+def build_review_html(
+    draft: ColumnDraft,
+    category: str,
+    week_key: str,
+    md_filename: str,
+    image_url: str | None,
+    logo_url: str,
+    char_count: int,
+) -> str:
+    cat_label = CATEGORY_LABEL_JA.get(category, category)
+    body_html = render_body_to_html(draft.body_md)
+
+    cover_block = ""
+    if image_url:
+        cover_block = (
+            '<div style="margin:24px 0;border-radius:8px;overflow:hidden;">'
+            f'<img src="{_esc(image_url)}" alt="{_esc(draft.title)}" '
+            'style="display:block;width:100%;height:auto;border:0;" />'
+            '</div>'
+        )
+
+    if logo_url:
+        logo_html = (
+            f'<img src="{_esc(logo_url)}" alt="HARRO LIFE" '
+            'style="height:32px;width:auto;display:block;border:0;" />'
+        )
+    else:
+        logo_html = (
+            '<div style="font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.02em;">'
+            'HARRO LIFE</div>'
+        )
+
+    meta_block = (
+        '<table width="100%" cellpadding="0" cellspacing="0" '
+        'style="background:#faf7f2;border-radius:8px;margin-bottom:24px;">'
+        '<tr><td style="padding:16px 20px;">'
+        '<div style="font-size:11px;color:#888;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;margin-bottom:6px;">'
+        'COLUMN DRAFT — REVIEW REQUESTED'
+        '</div>'
+        '<table width="100%" cellpadding="0" cellspacing="0">'
+        f'<tr><td style="font-size:13px;color:#666;width:90px;padding:2px 0;">週</td>'
+        f'<td style="font-size:13px;color:#1a1a1a;padding:2px 0;"><strong>{_esc(week_key)}</strong></td></tr>'
+        f'<tr><td style="font-size:13px;color:#666;padding:2px 0;">カテゴリ</td>'
+        f'<td style="font-size:13px;color:#1a1a1a;padding:2px 0;">{_esc(cat_label)}</td></tr>'
+        f'<tr><td style="font-size:13px;color:#666;padding:2px 0;">本文文字数</td>'
+        f'<td style="font-size:13px;color:#1a1a1a;padding:2px 0;">{char_count:,} 字</td></tr>'
+        f'<tr><td style="font-size:13px;color:#666;padding:2px 0;">ファイル</td>'
+        f'<td style="font-size:13px;color:#1a1a1a;padding:2px 0;font-family:monospace;">{_esc(md_filename)}</td></tr>'
+        '</table>'
+        '</td></tr></table>'
+    )
+
+    approval_box = (
+        '<div style="margin-top:32px;padding:20px;background:#09202e;border-radius:8px;color:#ffffff;">'
+        '<div style="font-size:13px;font-weight:700;letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;color:#EAE6C3;">'
+        '次のアクション'
+        '</div>'
+        '<div style="font-size:14px;line-height:1.7;color:#ffffff;">'
+        '<strong style="color:#EAE6C3;">公開する場合:</strong> Claude Code に '
+        f'「<span style="font-family:monospace;background:#1A3346;padding:2px 6px;border-radius:3px;">{_esc(week_key)} のコラム公開して</span>」と伝えてください。'
+        '<br/><br/>'
+        '<strong style="color:#EAE6C3;">修正したい場合:</strong> 添付の '
+        f'<span style="font-family:monospace;">{_esc(md_filename)}</span> を編集して suga@harrojp.com まで返信してください。'
+        '<br/><br/>'
+        '<strong style="color:#EAE6C3;">公開しない場合:</strong> Claude Code に '
+        f'「<span style="font-family:monospace;background:#1A3346;padding:2px 6px;border-radius:3px;">{_esc(week_key)} のコラム見送り</span>」と伝えてください。'
+        '</div></div>'
+    )
+
+    return f"""<!doctype html>
+<html lang="ja">
+<body style="margin:0;padding:0;background:#faf7f2;font-family:-apple-system,'Helvetica Neue','Hiragino Sans','Yu Gothic',sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#faf7f2;">
+<tr><td align="center">
+<table width="640" cellpadding="0" cellspacing="0" style="max-width:640px;background:#ffffff;margin:40px 20px;border-radius:8px;overflow:hidden;">
+<tr><td style="background:#09202e;padding:22px 32px;">{logo_html}</td></tr>
+<tr><td style="padding:32px 36px 40px;">
+{meta_block}
+<h1 style="font-size:26px;line-height:1.4;color:#09202e;margin:0 0 12px;font-weight:700;">{_esc(draft.title)}</h1>
+<div style="font-size:15px;color:#555;line-height:1.7;margin-bottom:8px;">{_esc(draft.description)}</div>
+{cover_block}
+<div style="font-size:11px;color:#999;letter-spacing:0.15em;text-transform:uppercase;font-weight:700;margin:32px 0 8px;border-top:1px solid #eee;padding-top:24px;">
+本文プレビュー
+</div>
+<div style="font-size:16px;line-height:1.85;color:#1a1a1a;">
+{body_html}
+</div>
+{approval_box}
+</td></tr>
+<tr><td style="padding:18px 36px 24px;border-top:1px solid #eee;background:#faf7f2;text-align:center;font-size:11px;color:#bbb;letter-spacing:0.1em;">
+HARRO LIFE Editorial · Auto-generated weekly column
+</td></tr>
+</table>
+</td></tr>
+</table>
+</body></html>"""
+
+
+def send_review_email(
+    api_key: str,
+    from_email: str,
+    to_email: str,
+    cc_emails: list[str],
+    draft: ColumnDraft,
+    category: str,
+    week_key: str,
+    md_filename: str,
+    md_content: str,
+    image_url: str | None,
+    logo_url: str,
+) -> bool:
+    """Send the column draft to editorial team via Resend.
+
+    Returns True on success.
+    """
+    char_count = len(re.sub(r"\s+", "", draft.body_md))
+    subject = f"[HARRO LIFE] {week_key} コラム下書き「{draft.title}」公開前確認"
+    html = build_review_html(
+        draft=draft,
+        category=category,
+        week_key=week_key,
+        md_filename=md_filename,
+        image_url=image_url,
+        logo_url=logo_url,
+        char_count=char_count,
+    )
+
+    payload: dict = {
+        "from": from_email,
+        "to": [to_email],
+        "subject": subject,
+        "html": html,
+        "attachments": [
+            {
+                "filename": md_filename,
+                "content": base64.b64encode(md_content.encode("utf-8")).decode("ascii"),
+            }
+        ],
+    }
+    if cc_emails:
+        payload["cc"] = cc_emails
+
+    try:
+        resp = requests.post(
+            "https://api.resend.com/emails",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=30,
+        )
+        resp.raise_for_status()
+        log.info(
+            "Review email sent to %s (cc=%s) — id=%s",
+            to_email,
+            ",".join(cc_emails) if cc_emails else "(none)",
+            resp.json().get("id", "?"),
+        )
+        return True
+    except requests.HTTPError as e:
+        log.error("Resend HTTP error: %s — body=%s", e, resp.text if resp is not None else "(no body)")
+        return False
+    except Exception as e:
+        log.error("Failed to send review email: %s", e)
+        return False
+
+
 def main() -> int:
     tz = ZoneInfo("Europe/Amsterdam")
     today = datetime.now(tz)
@@ -282,13 +484,25 @@ def main() -> int:
     category = pick_category((iso[0], iso[1]))
     log.info("Today: %s (ISO week %d) → category=%s", today.date(), iso[1], category)
 
-    # Idempotent: skip if a column for this week already exists
-    output_dir = Path(os.environ.get("COLUMN_OUTPUT_DIR") or DEFAULT_OUTPUT_DIR)
+    # Pending dir lives in this repo (netherlands-news-bot/pending-columns/).
+    # The CI workflow can override via COLUMN_PENDING_DIR.
+    pending_dir = Path(os.environ.get("COLUMN_PENDING_DIR") or DEFAULT_PENDING_DIR)
     week_key = f"{iso[0]}-W{iso[1]:02d}"
-    out_path = output_dir / f"auto-{week_key}-{category}.md"
+    out_path = pending_dir / f"auto-{week_key}-{category}.md"
+
+    # Idempotent: skip if a column for this week already exists in pending.
     if out_path.exists():
-        log.info("Column for %s already exists at %s — skipping", week_key, out_path)
+        log.info("Pending column for %s already exists at %s — skipping", week_key, out_path)
         return 0
+
+    # Idempotent: skip if a column for this week is already published in the
+    # site (we look at side-by-side harro-life-site/src/content/columns/ when
+    # we can find it; in CI this dir is not checked out so the lookup is a no-op).
+    published_dir = ROOT.parent / "harro-life-site" / "src" / "content" / "columns"
+    if published_dir.exists():
+        for existing in published_dir.glob(f"auto-{week_key}-*.md"):
+            log.info("Column for %s already published at %s — skipping", week_key, existing)
+            return 0
 
     draft = generate_column(category, today)
     if draft is None:
@@ -308,10 +522,42 @@ def main() -> int:
 
     pub_date = today.strftime("%Y-%m-%d")
     rendered = render_markdown(draft, category, pub_date, image_url)
-    output_dir.mkdir(parents=True, exist_ok=True)
+    pending_dir.mkdir(parents=True, exist_ok=True)
     out_path.write_text(rendered, encoding="utf-8")
-    log.info("Wrote %s (%d chars body)", out_path, len(draft.body_md))
-    return 0
+    log.info("Wrote pending column to %s (%d chars body)", out_path, len(draft.body_md))
+
+    # Send review email to the editorial team.
+    resend_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not resend_key:
+        log.warning("RESEND_API_KEY not set — pending column saved but no review email sent")
+        return 0
+
+    review_to = os.environ.get("REVIEW_TO", "suga@harrojp.com").strip()
+    review_cc = [
+        e.strip()
+        for e in os.environ.get("REVIEW_CC", "").split(",")
+        if e.strip()
+    ]
+    from_email = os.environ.get("EMAIL_FROM", "onboarding@resend.dev").strip()
+    logo_url = os.environ.get(
+        "HARRO_LOGO_URL",
+        "https://harro-life-site.pages.dev/images/brand/harro-life-on-dark.png",
+    ).strip()
+
+    ok = send_review_email(
+        api_key=resend_key,
+        from_email=from_email,
+        to_email=review_to,
+        cc_emails=review_cc,
+        draft=draft,
+        category=category,
+        week_key=week_key,
+        md_filename=out_path.name,
+        md_content=rendered,
+        image_url=image_url,
+        logo_url=logo_url,
+    )
+    return 0 if ok else 1
 
 
 if __name__ == "__main__":

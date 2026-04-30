@@ -28,16 +28,6 @@ jobs:
       - name: Checkout (netherlands-news-bot)
         uses: actions/checkout@v4
 
-      - name: Clone harro-life-site (cross-repo write target)
-        env:
-          HARRO_LIFE_SITE_PAT: ${{ secrets.HARRO_LIFE_SITE_PAT }}
-        run: |
-          if [ -z "$HARRO_LIFE_SITE_PAT" ]; then
-            echo "HARRO_LIFE_SITE_PAT not set, aborting"
-            exit 1
-          fi
-          git clone "https://x-access-token:${HARRO_LIFE_SITE_PAT}@github.com/agus95-89/harro-life-site.git" "$GITHUB_WORKSPACE/harro-life-site"
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -49,26 +39,27 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run column generator
+      - name: Run column generator (writes to pending-columns/, sends review email)
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           UNSPLASH_ACCESS_KEY: ${{ secrets.UNSPLASH_ACCESS_KEY }}
-          COLUMN_OUTPUT_DIR: ${{ github.workspace }}/harro-life-site/src/content/columns
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          REVIEW_TO: ${{ vars.REVIEW_TO }}
+          REVIEW_CC: ${{ vars.REVIEW_CC }}
+          COLUMN_PENDING_DIR: ${{ github.workspace }}/pending-columns
         run: python -m src.column_generator
 
-      - name: Commit + push to harro-life-site
-        env:
-          HARRO_LIFE_SITE_PAT: ${{ secrets.HARRO_LIFE_SITE_PAT }}
+      - name: Commit pending column to netherlands-news-bot
         run: |
-          cd "$GITHUB_WORKSPACE/harro-life-site"
           git config user.name "harro-life-bot"
           git config user.email "harro-life-bot@users.noreply.github.com"
-          git add src/content/columns/
+          git add pending-columns/
           if git diff --cached --quiet; then
-            echo "No new column to commit (likely skipped because the week's column already exists)"
+            echo "No new pending column to commit (likely skipped because the week's column already exists)"
             exit 0
           fi
-          git commit -m "chore: weekly column $(TZ=Europe/Amsterdam date +%Y-W%V)"
+          git commit -m "chore: pending column $(TZ=Europe/Amsterdam date +%Y-W%V)"
           for attempt in 1 2 3; do
             git pull --rebase origin main && git push && break
             echo "push attempt $attempt failed, retrying..."
