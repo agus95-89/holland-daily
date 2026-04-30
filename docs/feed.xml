@@ -13,7 +13,7 @@
       <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     </image>
     <language>ja</language>
-    <lastBuildDate>Wed, 29 Apr 2026 11:16:10 +0000</lastBuildDate>
+    <lastBuildDate>Thu, 30 Apr 2026 10:31:47 +0000</lastBuildDate>
     <itunes:author>HARRO LIFE</itunes:author>
     <itunes:category text="News">
       <itunes:category text="Daily News"/>
@@ -25,6 +25,15 @@
       <itunes:email>suga@harrojp.com</itunes:email>
     </itunes:owner>
     <itunes:summary>オランダのニュースを、日本語の音声でお届けします。</itunes:summary>
+    <item>
+      <title>HARRO LIFE — 2026-04-30</title>
+      <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-30.mp3</link>
+      <description>2026-04-30 のオランダニュース要約 (日本語・約13分)</description>
+      <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-04-30.mp3</guid>
+      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-04-30.mp3" length="11285805" type="audio/mpeg"/>
+      <pubDate>Thu, 30 Apr 2026 07:00:00 +0000</pubDate>
+      <itunes:duration>13:00</itunes:duration>
+    </item>
     <item>
       <title>HARRO LIFE — 2026-04-29</title>
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-04-29.mp3</link>
