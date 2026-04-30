@@ -204,7 +204,7 @@ def main() -> int:
             image_url=image_url,
             image_alt=image_alt,
             featured=(i == 1),
-            breaking=(summary_obj.importance >= 5),
+            breaking=False,  # HARRO LIFE is not a breaking-news outlet — flag stays off
         )
         written_paths.append(path)
         if i % 3 == 0:
