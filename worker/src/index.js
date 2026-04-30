@@ -1,11 +1,20 @@
-// Cloudflare Worker: Holland Daily subscription endpoint.
-// Receives { email } POST, adds to Resend Audience, sends welcome email.
+// Cloudflare Worker — two responsibilities:
+//   1. POST /  — Holland Daily subscription endpoint (Resend Audience).
+//   2. scheduled() — reliable cron trigger that POSTs to GitHub API to
+//      workflow_dispatch the daily news + weekly column workflows.
+//      GitHub Actions' built-in `schedule:` is best-effort and silently
+//      skipped on low-traffic repos (we lost a day of content on 4/30
+//      because of this); Cloudflare Workers cron is ±1 minute reliable.
 //
 // Required environment variables (set in Cloudflare dashboard or wrangler secrets):
 //   RESEND_API_KEY       - Resend API key (re_...)
 //   RESEND_AUDIENCE_ID   - Resend Audience ID (uuid)
 //   EMAIL_FROM           - sender address (e.g. onboarding@resend.dev)
 //   ALLOWED_ORIGIN       - comma-separated allowed origins (e.g. https://agus95-89.github.io)
+//   GH_DISPATCH_TOKEN    - GitHub PAT with `workflow` scope; used to dispatch
+//                          daily-news.yml + weekly-column.yml on holland-daily repo
+//   GH_DISPATCH_OWNER    - GitHub owner (default "agus95-89")
+//   GH_DISPATCH_REPO     - GitHub repo (default "holland-daily")
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -75,7 +84,66 @@ export default {
       return jsonResp({ error: "Server error" }, 500, corsHeaders);
     }
   },
+
+  /**
+   * Cron trigger handler. Dispatches the appropriate GitHub Actions
+   * workflow based on which cron schedule fired.
+   *
+   * Schedules (UTC, see wrangler.toml [triggers] crons):
+   *   0 8 * * *   → daily-news.yml every day
+   *                 (= 10:00 NL DST or 9:00 NL CET, both inside the
+   *                  Python-side 6h window starting at 09:00 NL)
+   *   0 8 * * 4   → weekly-column.yml on Thursdays only (additionally;
+   *                 daily-news.yml still fires from the * cron)
+   */
+  async scheduled(event, env, ctx) {
+    const cron = event.cron;
+    console.log(`Cron fired: ${cron}`);
+    const owner = env.GH_DISPATCH_OWNER || "agus95-89";
+    const repo = env.GH_DISPATCH_REPO || "holland-daily";
+
+    // Map cron expression to workflow file. Both crons may fire on Thursday;
+    // each dispatches its own workflow.
+    let workflow;
+    if (cron === "0 8 * * 4") {
+      workflow = "weekly-column.yml";
+    } else {
+      workflow = "daily-news.yml";
+    }
+
+    ctx.waitUntil(dispatchWorkflow(env, owner, repo, workflow));
+  },
 };
+
+async function dispatchWorkflow(env, owner, repo, workflow) {
+  if (!env.GH_DISPATCH_TOKEN) {
+    console.error("GH_DISPATCH_TOKEN not set; cannot dispatch", workflow);
+    return;
+  }
+  const url = `https://api.github.com/repos/${owner}/${repo}/actions/workflows/${workflow}/dispatches`;
+  const inputs =
+    workflow === "daily-news.yml" ? { force_run: false } : {};
+  // force_run: false lets the Python window guard + idempotency check apply
+  // (so a second fire same day silently skips). Manual workflow_dispatch from
+  // the GitHub UI defaults to true, which is the right escape hatch for
+  // humans but wrong for an unattended cron.
+  const resp = await fetch(url, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${env.GH_DISPATCH_TOKEN}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+      "User-Agent": "harro-life-cron/1.0",
+    },
+    body: JSON.stringify({ ref: "main", inputs }),
+  });
+  if (!resp.ok) {
+    const text = await resp.text();
+    console.error(`workflow_dispatch ${workflow} failed`, resp.status, text);
+    return;
+  }
+  console.log(`workflow_dispatch ${workflow} OK`);
+}
 
 function isAllowedOrigin(origin, env) {
   if (!env.ALLOWED_ORIGIN) return true;

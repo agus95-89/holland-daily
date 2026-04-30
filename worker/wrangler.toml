@@ -6,7 +6,19 @@ compatibility_date = "2025-01-01"
 [vars]
 ALLOWED_ORIGIN = "https://agus95-89.github.io"
 EMAIL_FROM = "onboarding@resend.dev"
+GH_DISPATCH_OWNER = "agus95-89"
+GH_DISPATCH_REPO = "holland-daily"
+
+# Cron triggers (UTC). GitHub Actions schedule is best-effort and proved
+# unreliable on this low-traffic repo (silently skipped 4/30 entirely),
+# so we drive workflow_dispatch from Cloudflare Workers cron (±1 min SLA).
+[triggers]
+crons = [
+  "0 8 * * *",   # Daily — 10:00 NL DST / 9:00 NL CET, fires daily-news.yml
+  "0 8 * * 4",   # Thursday — same time, additionally fires weekly-column.yml
+]
 
 # Secret values (set via `wrangler secret put` or Cloudflare dashboard):
 #   RESEND_API_KEY
 #   RESEND_AUDIENCE_ID
+#   GH_DISPATCH_TOKEN   (GitHub PAT with `workflow` scope)
