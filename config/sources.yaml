@@ -45,7 +45,7 @@ categories:
   - 生活・文化
 
 schedule:
-  target_hour_nl: 9
+  target_hour_nl: 8
   timezone: Europe/Amsterdam
   max_articles: 10
   candidate_pool_cap: 60   # raised so per-source cap fills the pool with a mix of all sources

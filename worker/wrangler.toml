@@ -15,10 +15,16 @@ GH_DISPATCH_REPO = "holland-daily"
 # Cron triggers (UTC). GitHub Actions schedule is best-effort and proved
 # unreliable on this low-traffic repo (silently skipped 4/30 entirely),
 # so we drive workflow_dispatch from Cloudflare Workers cron (±1 min SLA).
+#
+# Two daily crons fire to land 8:00 NL in both DST and standard time. The
+# Python pipeline's idempotency guard (`already_ran_today`) ensures only one
+# of them actually produces an episode each day.
 [triggers]
 crons = [
-  "0 8 * * *",   # Daily — 10:00 NL DST / 9:00 NL CET, fires daily-news.yml
-  "0 8 * * 4",   # Thursday — same time, additionally fires weekly-column.yml
+  "0 6 * * *",   # Daily — 8:00 NL CEST (summer); ignored in winter (would be 7:00 NL, before target window)
+  "0 7 * * *",   # Daily — 8:00 NL CET (winter); ignored in summer (idempotent skip — already ran)
+  "0 6 * * 4",   # Thursday — additionally fires weekly-column.yml in summer
+  "0 7 * * 4",   # Thursday — same in winter
 ]
 
 # Secret values (set via `wrangler secret put` or Cloudflare dashboard):

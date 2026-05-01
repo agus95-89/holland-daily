@@ -75,7 +75,7 @@ def update_feed(
         if ep_dt.date() < cutoff_date:
             continue  # outside the retention window — keep file but skip in feed
 
-        pub_date = ep_dt.replace(hour=7, minute=0, tzinfo=timezone.utc)
+        pub_date = ep_dt.replace(hour=6, minute=0, tzinfo=timezone.utc)  # 8:00 NL DST / 7:00 NL CET
         size = ep.stat().st_size
 
         # Content-aware title: lead with date + the day's top headline if a

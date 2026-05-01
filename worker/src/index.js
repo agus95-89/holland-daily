@@ -37,11 +37,10 @@ export default {
    * workflow based on which cron schedule fired.
    *
    * Schedules (UTC, see wrangler.toml [triggers] crons):
-   *   0 8 * * *   → daily-news.yml every day
-   *                 (= 10:00 NL DST or 9:00 NL CET, both inside the
-   *                  Python-side 6h window starting at 09:00 NL)
-   *   0 8 * * 4   → weekly-column.yml on Thursdays only (additionally;
-   *                 daily-news.yml still fires from the * cron)
+   *   0 6/7 * * *   → daily-news.yml — fires twice daily, Python's
+   *                   already_ran_today() guard ensures only one actually
+   *                   produces an episode (one for DST, one for CET)
+   *   0 6/7 * * 4   → weekly-column.yml on Thursdays additionally
    */
   async scheduled(event, env, ctx) {
     const cron = event.cron;
@@ -49,12 +48,10 @@ export default {
     const owner = env.GH_DISPATCH_OWNER || "agus95-89";
     const repo = env.GH_DISPATCH_REPO || "holland-daily";
 
-    let workflow;
-    if (cron === "0 8 * * 4") {
-      workflow = "weekly-column.yml";
-    } else {
-      workflow = "daily-news.yml";
-    }
+    // Thursday-only crons (with `* * 4` day-of-week field) fire the column
+    // workflow in addition to the daily one.
+    const isThursdayCron = cron.endsWith("* * 4");
+    const workflow = isThursdayCron ? "weekly-column.yml" : "daily-news.yml";
 
     ctx.waitUntil(dispatchWorkflow(env, owner, repo, workflow));
   },
