@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 import os
 import sys
@@ -213,6 +214,29 @@ def main() -> int:
 
     log.info("[6/8] Generating podcast script...")
     script_text = script.build_script(top, today, client=client, model=model)
+
+    # Sidecar metadata for podcast.update_feed() — content-aware episode title
+    # uses the top headline of the day so Apple/Spotify show what's interesting
+    # rather than "HARRO LIFE — 2026-04-30".
+    EPISODES_DIR.mkdir(parents=True, exist_ok=True)
+    meta_path = EPISODES_DIR / f"{today.isoformat()}.json"
+    headline_count = len(top)
+    meta_path.write_text(
+        json.dumps(
+            {
+                "top_headline": top[0].title_ja if top else "",
+                "description": (
+                    f"{today.isoformat()} のオランダ主要ニュース {headline_count}本を日本語で要約 (約13分)。"
+                    if top
+                    else f"{today.isoformat()} のオランダニュース要約 (日本語・約13分)"
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    log.info("  Episode metadata written: %s", meta_path.name)
 
     log.info("[7/8] Synthesizing audio (Google TTS)...")
     mp3_path = EPISODES_DIR / f"{today.isoformat()}.mp3"

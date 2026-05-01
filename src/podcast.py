@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -7,6 +8,22 @@ from pathlib import Path
 from feedgen.feed import FeedGenerator
 
 log = logging.getLogger(__name__)
+
+
+def _load_episode_meta(episodes_dir: Path, date_str: str) -> dict:
+    """Read docs/episodes/{date}.json sidecar with content-aware title etc.
+
+    Returns an empty dict when the sidecar is missing or malformed — callers
+    fall back to date-only defaults so older episodes keep working.
+    """
+    meta_path = episodes_dir / f"{date_str}.json"
+    if not meta_path.exists():
+        return {}
+    try:
+        return json.loads(meta_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        log.warning("Could not read episode meta %s: %s", meta_path, e)
+        return {}
 
 
 def update_feed(
@@ -60,10 +77,26 @@ def update_feed(
 
         pub_date = ep_dt.replace(hour=7, minute=0, tzinfo=timezone.utc)
         size = ep.stat().st_size
+
+        # Content-aware title: lead with date + the day's top headline if a
+        # sidecar JSON exists; fall back to "show — date" otherwise.
+        meta = _load_episode_meta(episodes_dir, date_str)
+        ep_dt_local = ep_dt
+        date_short = f"{ep_dt_local.month}/{ep_dt_local.day}"
+        top_headline = (meta.get("top_headline") or "").strip()
+        if top_headline:
+            ep_title = f"{date_short}｜{top_headline}"
+        else:
+            ep_title = f"{show_name} — {date_str}"
+        ep_description = (
+            meta.get("description")
+            or f"{date_str} のオランダニュース要約 (日本語・約13分)"
+        )
+
         fe = fg.add_entry()
         fe.id(f"{base_url}/episodes/{ep.name}")
-        fe.title(f"{show_name} — {date_str}")
-        fe.description(f"{date_str} のオランダニュース要約 (日本語・約13分)")
+        fe.title(ep_title)
+        fe.description(ep_description)
         fe.link(href=f"{base_url}/episodes/{ep.name}")
         fe.enclosure(f"{base_url}/episodes/{ep.name}", str(size), "audio/mpeg")
         fe.pubDate(pub_date)
