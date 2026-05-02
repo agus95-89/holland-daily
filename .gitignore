@@ -10,3 +10,6 @@ gcp-sa.json
 .idea/
 HANDOVER.md
 scripts/migrate_data/
+
+# Cloudflare Wrangler local state
+worker/.wrangler/

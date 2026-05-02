@@ -238,14 +238,17 @@ def main() -> int:
     )
     log.info("  Episode metadata written: %s", meta_path.name)
 
-    log.info("[7/8] Synthesizing audio (Google TTS)...")
+    log.info("[7/8] Synthesizing audio (Gemini Multi-Speaker TTS)...")
     mp3_path = EPISODES_DIR / f"{today.isoformat()}.mp3"
+    tts_cfg = cfg["tts"]
     tts.script_to_mp3(
         script_text,
         mp3_path,
-        intro_voice=cfg["tts"]["intro_voice"],
-        body_voice=cfg["tts"]["body_voice"],
-        speaking_rate=cfg["tts"]["speaking_rate"],
+        announcer_voice=tts_cfg["announcer_voice"],
+        commentator_voice=tts_cfg["commentator_voice"],
+        chunk_max_chars=tts_cfg.get("chunk_max_chars", 800),
+        inter_chunk_silence_ms=tts_cfg.get("inter_chunk_silence_ms", 700),
+        bitrate=tts_cfg.get("bitrate", "128k"),
     )
 
     base_url = os.environ.get("PODCAST_BASE_URL") or cfg["podcast"]["base_url"]

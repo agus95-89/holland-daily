@@ -56,9 +56,12 @@ claude:
   max_body_chars: 8000
 
 tts:
-  intro_voice: ja-JP-Neural2-B
-  body_voice: ja-JP-Neural2-C
-  speaking_rate: 1.05
+  # Gemini 2.5 Flash TTS Multi-Speaker (since 2026-05-02)
+  announcer_voice: Kore        # Speaker 1 — 進行 + ニュース本文読み (女性)
+  commentator_voice: Puck      # Speaker 2 — 補足のみ (男性)
+  chunk_max_chars: 800         # 1 リクエストの上限。大きいと artifact (高い whine) が出る
+  inter_chunk_silence_ms: 700  # chunk 間の無音 (掛け合いの間として機能)
+  bitrate: "128k"              # MP3 圧縮ビットレート (64k だと artifact が目立つ)
 
 podcast:
   show_name: HARRO LIFE
