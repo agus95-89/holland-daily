@@ -111,36 +111,28 @@ def fetch_cloudflare_stats(
     site_tag: str,
     since: datetime,
     until: datetime,
-    top_limit: int = 30,
+    top_limit: int = 30,  # kept for signature compat; top_pages not yet implemented
 ) -> SiteStats:
     """Hit Cloudflare GraphQL Analytics for RUM page-load events.
 
-    `since` / `until` are timezone-aware datetimes; converted to UTC for the
-    API call. Returns total PV / visits / uniques and the top N requestPaths
-    by PV.
+    Phase 1 scope: total PV + visits only. Top Pages by URL needs further
+    schema investigation (Cloudflare RUM dataset does not expose a `metric`
+    or `requestPath` dimension; uniq aggregation also unavailable). Returns
+    empty top_pages — render layer falls back to "データ取得中" placeholder.
     """
     since_iso = since.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     until_iso = until.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     query = """
-    query Stats($accountTag: String!, $siteTag: String!, $since: Time!, $until: Time!, $topLimit: Int!) {
+    query Stats($accountTag: String!, $siteTag: String!, $since: Time!, $until: Time!) {
       viewer {
-        accounts(filter: {accountTag: $accountTag}, limit: 1) {
+        accounts(filter: {accountTag: $accountTag}) {
           total: rumPageloadEventsAdaptiveGroups(
             limit: 1
             filter: {siteTag: $siteTag, datetime_geq: $since, datetime_lt: $until}
           ) {
             count
             sum { visits }
-            uniq { uniques }
-          }
-          topPages: rumPageloadEventsAdaptiveGroups(
-            limit: $topLimit
-            filter: {siteTag: $siteTag, datetime_geq: $since, datetime_lt: $until}
-            orderBy: [count_DESC]
-          ) {
-            count
-            dimensions { metric }
           }
         }
       }
@@ -160,7 +152,6 @@ def fetch_cloudflare_stats(
                 "siteTag": site_tag,
                 "since": since_iso,
                 "until": until_iso,
-                "topLimit": top_limit,
             },
         },
         timeout=30,
@@ -183,19 +174,10 @@ def fetch_cloudflare_stats(
         first = total_rows[0]
         pv = int(first.get("count", 0))
         visits = int((first.get("sum") or {}).get("visits", 0) or 0)
-        uniques = int((first.get("uniq") or {}).get("uniques", 0) or 0)
     else:
-        pv = visits = uniques = 0
+        pv = visits = 0
 
-    top_pages: list[TopPage] = []
-    for row in acct.get("topPages") or []:
-        dims = row.get("dimensions") or {}
-        path = dims.get("metric") or dims.get("requestPath") or ""
-        if not path:
-            continue
-        top_pages.append(TopPage(path=path, pageviews=int(row.get("count", 0))))
-
-    return SiteStats(pageviews=pv, visits=visits, uniques=uniques, top_pages=top_pages)
+    return SiteStats(pageviews=pv, visits=visits, uniques=0, top_pages=[])
 
 
 # ──────────────────────────────────────────────────────────────────────
