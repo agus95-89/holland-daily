@@ -16,15 +16,18 @@ GH_DISPATCH_REPO = "holland-daily"
 # unreliable on this low-traffic repo (silently skipped 4/30 entirely),
 # so we drive workflow_dispatch from Cloudflare Workers cron (±1 min SLA).
 #
-# Two daily crons fire to land 8:00 NL in both DST and standard time. The
-# Python pipeline's idempotency guard (`already_ran_today`) ensures only one
-# of them actually produces an episode each day.
+# Two-cron pairs (one for CEST, one for CET) cover both halves of the year
+# with idempotency on the workflow side.
 [triggers]
 crons = [
-  "0 6 * * *",   # Daily — 8:00 NL CEST (summer); ignored in winter (would be 7:00 NL, before target window)
-  "0 7 * * *",   # Daily — 8:00 NL CET (winter); ignored in summer (idempotent skip — already ran)
-  "0 6 * * 4",   # Thursday — additionally fires weekly-column.yml in summer
-  "0 7 * * 4",   # Thursday — same in winter
+  "0 6 * * *",     # Daily news — 8:00 NL CEST (summer)
+  "0 7 * * *",     # Daily news — 8:00 NL CET (winter); already_ran_today() skips if summer cron ran
+  "0 6 * * 4",     # Thursday — additionally fires weekly-column.yml in summer
+  "0 7 * * 4",     # Thursday — same in winter
+  "30 6 * * *",    # Daily report — 8:30 NL CEST (after the news pipeline finishes)
+  "30 7 * * *",    # Daily report — 8:30 NL CET
+  "0 7 1 * *",     # Monthly report — 9:00 NL CEST on day 1
+  "0 8 1 * *",     # Monthly report — 9:00 NL CET on day 1
 ]
 
 # Secret values (set via `wrangler secret put` or Cloudflare dashboard):

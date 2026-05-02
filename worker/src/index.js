@@ -33,14 +33,16 @@ export default {
   },
 
   /**
-   * Cron trigger handler. Dispatches the appropriate GitHub Actions
-   * workflow based on which cron schedule fired.
+   * Cron trigger handler — routes each cron to the right workflow.
    *
    * Schedules (UTC, see wrangler.toml [triggers] crons):
-   *   0 6/7 * * *   → daily-news.yml — fires twice daily, Python's
-   *                   already_ran_today() guard ensures only one actually
-   *                   produces an episode (one for DST, one for CET)
-   *   0 6/7 * * 4   → weekly-column.yml on Thursdays additionally
+   *   0 6/7 * * *    → daily-news.yml      (8:00 NL, CEST/CET pair)
+   *   0 6/7 * * 4    → weekly-column.yml   (Thursday, CEST/CET pair)
+   *   30 6/7 * * *   → daily-report.yml    (8:30 NL, CEST/CET pair)
+   *   0 7/8 1 * *    → monthly-report.yml  (1st of month, 9:00 NL, CEST/CET pair)
+   *
+   * Each workflow is idempotent so the second cron of a CEST/CET pair
+   * silently exits.
    */
   async scheduled(event, env, ctx) {
     const cron = event.cron;
@@ -48,11 +50,12 @@ export default {
     const owner = env.GH_DISPATCH_OWNER || "agus95-89";
     const repo = env.GH_DISPATCH_REPO || "holland-daily";
 
-    // Thursday-only crons (with `* * 4` day-of-week field) fire the column
-    // workflow in addition to the daily one.
-    const isThursdayCron = cron.endsWith("* * 4");
-    const workflow = isThursdayCron ? "weekly-column.yml" : "daily-news.yml";
-
+    const workflow = pickWorkflow(cron);
+    if (!workflow) {
+      console.warn(`No workflow mapping for cron: ${cron}`);
+      return;
+    }
+    console.log(`Dispatching ${workflow}`);
     ctx.waitUntil(dispatchWorkflow(env, owner, repo, workflow));
   },
 };
@@ -210,6 +213,22 @@ async function markResendContactUnsubscribed(env, email) {
   console.error("Resend unsubscribe failed", resp.status, text);
   // 404 means the email was never subscribed — treat as success from the user's POV.
   return resp.status === 404;
+}
+
+/**
+ * Map a cron expression (the literal string from wrangler.toml) to the
+ * GitHub Actions workflow it should dispatch. Returns null if no mapping.
+ */
+function pickWorkflow(cron) {
+  // Monthly: cron like "0 7 1 * *" or "0 8 1 * *"
+  if (/^0 [78] 1 \* \*$/.test(cron)) return "monthly-report.yml";
+  // Daily report: "30 6 * * *" or "30 7 * * *"
+  if (/^30 [67] \* \* \*$/.test(cron)) return "daily-report.yml";
+  // Thursday column: "0 6 * * 4" or "0 7 * * 4"
+  if (cron.endsWith("* * 4")) return "weekly-column.yml";
+  // Daily news: "0 6 * * *" or "0 7 * * *"
+  if (/^0 [67] \* \* \*$/.test(cron)) return "daily-news.yml";
+  return null;
 }
 
 async function dispatchWorkflow(env, owner, repo, workflow) {

@@ -1,0 +1,67 @@
+name: HARRO LIFE Daily Report
+
+on:
+  workflow_dispatch:
+  # Cloudflare Worker fires the workflow_dispatch above (see worker/src/index.js).
+  # No on.schedule here — GitHub schedule was unreliable on this low-traffic repo.
+
+permissions:
+  contents: write
+
+concurrency:
+  group: daily-report
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (netherlands-news-bot)
+        uses: actions/checkout@v4
+
+      - name: Checkout harro-life-site (read-only, for title lookup)
+        uses: actions/checkout@v4
+        with:
+          repository: agus95-89/harro-life-site
+          path: ../harro-life-site
+          token: ${{ secrets.HARRO_LIFE_SITE_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Send daily report
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+          CF_SITE_TAG: ${{ vars.CF_SITE_TAG }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_AUDIENCE_ID: ${{ vars.RESEND_AUDIENCE_ID }}
+          MARKETING_AUDIENCE_ID: ${{ vars.MARKETING_AUDIENCE_ID }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          REPORT_TO: ${{ vars.REPORT_TO }}
+        run: python -m scripts.send_daily_report
+
+      - name: Commit updated snapshot
+        run: |
+          git config user.name "harro-life-bot"
+          git config user.email "harro-life-bot@users.noreply.github.com"
+          git add docs/reports/snapshot.json
+          if git diff --cached --quiet; then
+            echo "No snapshot change to commit"
+            exit 0
+          fi
+          git commit -m "chore: daily report snapshot $(TZ=Europe/Amsterdam date +%Y-%m-%d)"
+          for attempt in 1 2 3; do
+            git pull --rebase origin main && git push && break
+            echo "push attempt $attempt failed, retrying..."
+            sleep 5
+          done

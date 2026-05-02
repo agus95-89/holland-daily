@@ -1,0 +1,50 @@
+name: HARRO LIFE Monthly Report
+
+on:
+  workflow_dispatch:
+  # Fired by Cloudflare Worker on the 1st of each month (see worker/src/index.js).
+
+permissions:
+  contents: read
+
+concurrency:
+  group: monthly-report
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout (netherlands-news-bot)
+        uses: actions/checkout@v4
+
+      - name: Checkout harro-life-site (read-only, for title lookup)
+        uses: actions/checkout@v4
+        with:
+          repository: agus95-89/harro-life-site
+          path: ../harro-life-site
+          token: ${{ secrets.HARRO_LIFE_SITE_PAT }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Send monthly report
+        env:
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: ${{ vars.CF_ACCOUNT_ID }}
+          CF_SITE_TAG: ${{ vars.CF_SITE_TAG }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          RESEND_AUDIENCE_ID: ${{ vars.RESEND_AUDIENCE_ID }}
+          MARKETING_AUDIENCE_ID: ${{ vars.MARKETING_AUDIENCE_ID }}
+          EMAIL_FROM: ${{ vars.EMAIL_FROM }}
+          REPORT_TO: ${{ vars.REPORT_TO }}
+        run: python -m scripts.send_monthly_report
