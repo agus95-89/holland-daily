@@ -59,7 +59,7 @@ tts:
   # Gemini 2.5 Flash TTS Multi-Speaker (since 2026-05-02)
   announcer_voice: Kore        # Speaker 1 — 進行 + ニュース本文読み (女性)
   commentator_voice: Puck      # Speaker 2 — 補足のみ (男性)
-  chunk_max_chars: 800         # 1 リクエストの上限。大きいと artifact (高い whine) が出る
+  chunk_max_chars: 1500        # 1 リクエストの上限。大きいほど声の一貫性が増すが、長すぎると artifact 復活。1500 ≒ 3 分前後/chunk が安全圏 (bitrate 128k と併用)
   inter_chunk_silence_ms: 700  # chunk 間の無音 (掛け合いの間として機能)
   bitrate: "128k"              # MP3 圧縮ビットレート (64k だと artifact が目立つ)
 
