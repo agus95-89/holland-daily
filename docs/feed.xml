@@ -13,7 +13,7 @@
       <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     </image>
     <language>ja</language>
-    <lastBuildDate>Sat, 02 May 2026 06:12:31 +0000</lastBuildDate>
+    <lastBuildDate>Sun, 03 May 2026 06:17:38 +0000</lastBuildDate>
     <itunes:author>HARRO LIFE</itunes:author>
     <itunes:category text="News">
       <itunes:category text="Daily News"/>
@@ -25,6 +25,16 @@
       <itunes:email>suga@harrojp.com</itunes:email>
     </itunes:owner>
     <itunes:summary>オランダのニュースを、日本語の音声でお届けします。</itunes:summary>
+    <item>
+      <title>5/3｜ホロコースト偽情報がTikTok経由で教室に侵入</title>
+      <link>https://agus95-89.github.io/holland-daily/episodes/2026-05-03.mp3</link>
+      <description>2026-05-03 のオランダ主要ニュース 10本を日本語で要約 (約13分)。</description>
+      <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-05-03.mp3</guid>
+      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-05-03.mp3" length="14671532" type="audio/mpeg"/>
+      <pubDate>Sun, 03 May 2026 06:00:00 +0000</pubDate>
+      <itunes:duration>13:00</itunes:duration>
+      <itunes:season>1</itunes:season>
+    </item>
     <item>
       <title>5/2｜乾燥続きのオランダに久々の雨、雷雨にも注意</title>
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-05-02.mp3</link>
