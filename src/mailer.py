@@ -56,7 +56,13 @@ def send_via_resend(
 ) -> None:
     n = len(summaries)
     date_short = f"{today.month}/{today.day}"
-    subject = f"{show_name}｜オランダの今日のニュース {n}本（{date_short}）"
+    # Match the podcast episode title format ({date}｜{top headline}) but keep
+    # the show name prefix so the brand stays in the inbox preview.
+    top_headline = summaries[0].title_ja if summaries else ""
+    if top_headline:
+        subject = f"{show_name}｜{date_short}｜{top_headline}"
+    else:
+        subject = f"{show_name}｜オランダの今日のニュース {n}本（{date_short}）"
 
     sent = 0
     failed = 0
