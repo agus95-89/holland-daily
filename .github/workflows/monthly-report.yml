@@ -2,7 +2,13 @@ name: HARRO LIFE Monthly Report
 
 on:
   workflow_dispatch:
-  # Fired by Cloudflare Worker on the 1st of each month (see worker/src/index.js).
+    inputs:
+      allow_legacy_run:
+        description: 'Emergency rollback only: actually run this legacy workflow'
+        type: boolean
+        default: false
+  # Legacy repo is frozen after migration to HARROJP/HARRO_LIFE. Keep manual
+  # dispatch only for rollback; old Worker-driven dispatches should no-op.
 
 permissions:
   contents: read
@@ -13,6 +19,7 @@ concurrency:
 
 jobs:
   run:
+    if: ${{ github.event.inputs.allow_legacy_run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:

@@ -1,17 +1,15 @@
 name: HARRO LIFE Weekly Column
 
 on:
-  schedule:
-    # Every Thursday — fire across an 8-12 UTC window so we always land
-    # somewhere inside Europe/Amsterdam business hours regardless of GitHub
-    # Actions schedule delays. Idempotent: a week's column is generated only
-    # once (filename includes ISO week, second run sees existing file and exits).
-    - cron: '0 8 * * 4'
-    - cron: '0 9 * * 4'
-    - cron: '0 10 * * 4'
-    - cron: '0 11 * * 4'
-    - cron: '0 12 * * 4'
+  # Legacy repo is frozen after migration to HARROJP/HARRO_LIFE.
+  # Keep manual dispatch only for rollback; scheduled/Worker-driven runs
+  # must not create duplicate column drafts.
   workflow_dispatch:
+    inputs:
+      allow_legacy_run:
+        description: 'Emergency rollback only: actually run this legacy workflow'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -22,6 +20,7 @@ concurrency:
 
 jobs:
   run:
+    if: ${{ github.event.inputs.allow_legacy_run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

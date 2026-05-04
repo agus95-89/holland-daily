@@ -1,19 +1,15 @@
 name: Holland Daily Podcast
 
 on:
-  schedule:
-    # GitHub Actions cron is UTC only and on low-traffic repos can be delayed
-    # by several hours. Fire every hour from 07:00 to 11:00 UTC so we always
-    # land somewhere inside the Python-side 6-hour run window starting at
-    # 09:00 Europe/Amsterdam (covers both DST and CET). Idempotent: a day's
-    # episode is generated only once.
-    - cron: '0 7 * * *'
-    - cron: '0 8 * * *'
-    - cron: '0 9 * * *'
-    - cron: '0 10 * * *'
-    - cron: '0 11 * * *'
+  # Legacy repo is frozen after migration to HARROJP/HARRO_LIFE.
+  # Keep manual dispatch only for rollback; scheduled/Worker-driven runs
+  # must not generate duplicate podcast episodes or emails.
   workflow_dispatch:
     inputs:
+      allow_legacy_run:
+        description: 'Emergency rollback only: actually run this legacy workflow'
+        type: boolean
+        default: false
       force_run:
         description: 'Skip local-hour guard and run now'
         type: boolean
@@ -28,6 +24,7 @@ concurrency:
 
 jobs:
   run:
+    if: ${{ github.event.inputs.allow_legacy_run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:

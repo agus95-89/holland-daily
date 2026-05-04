@@ -2,8 +2,13 @@ name: HARRO LIFE Daily Report
 
 on:
   workflow_dispatch:
-  # Cloudflare Worker fires the workflow_dispatch above (see worker/src/index.js).
-  # No on.schedule here — GitHub schedule was unreliable on this low-traffic repo.
+    inputs:
+      allow_legacy_run:
+        description: 'Emergency rollback only: actually run this legacy workflow'
+        type: boolean
+        default: false
+  # Legacy repo is frozen after migration to HARROJP/HARRO_LIFE. Keep manual
+  # dispatch only for rollback; old Worker-driven dispatches should no-op.
 
 permissions:
   contents: write
@@ -14,6 +19,7 @@ concurrency:
 
 jobs:
   run:
+    if: ${{ github.event.inputs.allow_legacy_run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
