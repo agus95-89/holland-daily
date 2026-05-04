@@ -13,7 +13,7 @@
       <link>https://agus95-89.github.io/holland-daily/feed.xml</link>
     </image>
     <language>ja</language>
-    <lastBuildDate>Sun, 03 May 2026 06:17:38 +0000</lastBuildDate>
+    <lastBuildDate>Mon, 04 May 2026 06:15:55 +0000</lastBuildDate>
     <itunes:author>HARRO LIFE</itunes:author>
     <itunes:category text="News">
       <itunes:category text="Daily News"/>
@@ -25,6 +25,16 @@
       <itunes:email>suga@harrojp.com</itunes:email>
     </itunes:owner>
     <itunes:summary>オランダのニュースを、日本語の音声でお届けします。</itunes:summary>
+    <item>
+      <title>5/4｜戦没者追悼記念日と王女暗殺計画初公判</title>
+      <link>https://agus95-89.github.io/holland-daily/episodes/2026-05-04.mp3</link>
+      <description>2026-05-04 のオランダ主要ニュース 10本を日本語で要約 (約13分)。</description>
+      <guid isPermaLink="false">https://agus95-89.github.io/holland-daily/episodes/2026-05-04.mp3</guid>
+      <enclosure url="https://agus95-89.github.io/holland-daily/episodes/2026-05-04.mp3" length="13885100" type="audio/mpeg"/>
+      <pubDate>Mon, 04 May 2026 06:00:00 +0000</pubDate>
+      <itunes:duration>13:00</itunes:duration>
+      <itunes:season>1</itunes:season>
+    </item>
     <item>
       <title>5/3｜ホロコースト偽情報がTikTok経由で教室に侵入</title>
       <link>https://agus95-89.github.io/holland-daily/episodes/2026-05-03.mp3</link>
